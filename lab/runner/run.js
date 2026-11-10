@@ -135,6 +135,7 @@ export function armSummary(r, man) {
   s.max_rps_within_sla = Math.round(best);
   for (const h of man.headline || []) {
     const [name, at] = h.metric.split("@");
+    if (name.startsWith("k6:")) { s[h.metric] = r.k6 ? +(+r.k6[name.slice(3)]).toFixed(2) : null; continue; } // client-side numbers, e.g. k6:failed_pct
     if (at) {
       // average over the last two-thirds of that stage (the ramp to the target rate is linear within a stage)
       const idx = r.rates.indexOf(Number(at));

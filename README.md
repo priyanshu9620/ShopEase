@@ -14,6 +14,9 @@ one command, watched live in Grafana, and written up with measured numbers.
 | **01 caching** — max RPS with p95 < 300 ms | 814 req/s | 1,542 req/s | +89 % |
 | 01 caching — p95 at 400 req/s | 25 ms | 1.7 ms | −93 % |
 | 01 caching — MongoDB ops/s at 400 req/s | 390 | 4 | −99 % |
+| **02 scale-out** — max RPS with p95 < 300 ms, 1 → 3 replicas | 313 req/s | 827 req/s | +164 % |
+| 02 scale-out — p95 at 400 req/s, 1 → 3 replicas | 62 ms | 23 ms | −63 % |
+| **03 fault tolerance** — requests failed when one instance is stopped under 300 req/s, 1 vs 3 replicas | 56.2 % | 0 % | −100 % |
 
 Measured on one laptop (3 app replicas × 1 CPU behind nginx, Mongo + Redis local, k6 open-model ramp
 100 → 1,600 req/s, 45 s per stage). Full write-ups with charts: [experiments/](experiments/README.md).

@@ -17,7 +17,7 @@ arms:
     env: { FLAG: "true" }
     # hooks:
     #   before: ["docker compose -p shopease exec -T mongo mongosh --quiet ecommerce --eval 'db.products.createIndex({slug:1})'"]
-    #   during: [{ at_s: 60, run: "docker kill shopease-app-2", label: "replica killed" }]
+    #   during: [{ at_s: 60, run: "docker stop -t 0 $(docker ps -q -f label=com.docker.compose.project=shopease -f label=com.docker.compose.service=app | head -1)", label: "replica killed" }]
     #   after:  []
 
 load:

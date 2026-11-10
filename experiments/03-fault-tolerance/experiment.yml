@@ -15,14 +15,15 @@ arms:
     env: { CACHE_ENABLED: "false" }
     hooks:
       during:
-        - { at_s: 60, run: "docker stop -t 0 shopease-app-1", label: "replica killed" }
+        - { at_s: 60, run: "docker stop -t 0 $(docker ps -q -f label=com.docker.compose.project=shopease -f label=com.docker.compose.service=app | head -1)", label: "replica killed" }
+  # the container is chosen by compose label, not by name — names change after every rescale
   redundant:
     label: 3 replicas, one killed
     replicas: 3
     env: { CACHE_ENABLED: "false" }
     hooks:
       during:
-        - { at_s: 60, run: "docker stop -t 0 shopease-app-2", label: "replica killed" }
+        - { at_s: 60, run: "docker stop -t 0 $(docker ps -q -f label=com.docker.compose.project=shopease -f label=com.docker.compose.service=app | head -1)", label: "replica killed" }
 
 load:
   script: browse.js
@@ -34,16 +35,15 @@ sla_ms: 300
 max_error_pct: 1
 
 metrics:
-  - { name: rps,        unit: req/s, query: 'sum(rate(http_request_duration_seconds_count{job="app",route!~"/healthz|/metrics|/static/.*|other"}[15s]))' }
+  - { name: rps,        unit: req/s, query: 'sum(rate(http_request_duration_seconds_count{job="app",route!~"/healthz|/metrics|/static/.*|other"}[15s])) or vector(0)' }
   # "or vector(0)" so the series exists even when no replica is alive (otherwise the point is dropped and a 0 looks like a 1)
   - { name: error_pct,  unit: '%', query: '(100 * sum(rate(http_request_duration_seconds_count{job="app",status=~"5.."}[15s])) / sum(rate(http_request_duration_seconds_count{job="app"}[15s]))) or vector(0)' }
   - { name: p95_ms,     unit: ms, scale: 1000, query: 'histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="app",route!~"/healthz|/metrics|/static/.*|other"}[15s])))' }
   - { name: replicas_up, unit: n, query: 'sum(up{job="app"}) or vector(0)' }
 
 headline:
-  - { metric: rps:min,         label: lowest 15 s throughput reaching the app }
-  - { metric: replicas_up:min, label: replicas up at the low point }
-  - { metric: error_pct:max,   label: worst 15 s 5xx rate (server side) }
+  - { metric: k6:failed_pct,   label: requests failed, as the user sees it (%) }
+  - { metric: rps,             label: average throughput over the run (req/s) }
 
 caveats:
   - First attempt used `docker kill`; the compose `restart: unless-stopped` policy restarted the container in ~2 s and the single-replica arm lost only 0.4 % of requests. That is self-healing at the orchestrator level (the same job an ASG or Kubernetes does); `docker stop` is used here so the experiment isolates redundancy from restart.

@@ -11,3 +11,6 @@ post-commit-scripts/
 # lab outputs that are regenerated per run
 experiments/*/results/
 .DS_Store
+
+# built React client (produced by the Dockerfile / CI, not committed any more)
+client/build/

@@ -1,16 +1,33 @@
-# ShopEase API (+ the committed React build) — single image used locally, in the lab and on EC2.
+# ShopEase — single image used locally, in the lab and on EC2.
+#
+# Stage 1 builds the React client; stage 2 is the slim runtime that serves the API and the build.
+# (Phase 4 moves the build to S3/CloudFront; the API image then shrinks to stage 2 only.)
+
+# ---------- stage 1: client build ----------
+FROM node:20.18.0-bookworm-slim AS client
+WORKDIR /client
+COPY client/package.json client/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY client/ ./
+# REACT_APP_API empty → same-origin API calls (see client/src/index.js)
+ARG REACT_APP_API=
+# CI is deliberately NOT set: CRA would turn the original code's eslint warnings into build errors.
+ENV REACT_APP_API=${REACT_APP_API} GENERATE_SOURCEMAP=false
+RUN npm run build
+
+# ---------- stage 2: runtime ----------
 # glibc-based slim image so bcrypt's prebuilt native binary loads without a compiler.
 FROM node:20.18.0-bookworm-slim
-
 ENV NODE_ENV=production
 WORKDIR /app
 
 # Install deps first so this layer is cached until package*.json change.
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 
-# App source + the pre-built client (client/build is committed; Phase 4 moves it to S3/CloudFront).
+# App source (client/ source is excluded by .dockerignore) + the built client from stage 1.
 COPY . .
+COPY --from=client /client/build ./client/build
 
 # APP_VERSION is stamped by CI (git sha); /healthz reports it so rolling deploys are visible.
 ARG APP_VERSION=dev

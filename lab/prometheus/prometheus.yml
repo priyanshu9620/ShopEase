@@ -1,0 +1,24 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  # every app replica: Docker DNS returns one A record per container of service "app"
+  - job_name: app
+    dns_sd_configs:
+      - names: ["app"]
+        type: A
+        port: 8080
+    # the app already labels series with replica=<hostname>; keep instance as-is
+
+  - job_name: redis
+    static_configs:
+      - targets: ["redis-exporter:9121"]
+
+  - job_name: mongo
+    static_configs:
+      - targets: ["mongo-exporter:9216"]
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

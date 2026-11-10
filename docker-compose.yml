@@ -4,6 +4,8 @@
 #   open http://localhost:8080
 # The lab profile (Prometheus, Grafana, nginx, k6 runner) is added in Phase 2.
 
+name: shopease   # fixed project name so the runner (cwd /work) and the laptop (cwd ShopEase) share one stack
+
 services:
   app:
     build:

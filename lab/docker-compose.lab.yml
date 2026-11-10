@@ -1,0 +1,84 @@
+# The lab stack, layered on top of docker-compose.yml:
+#   docker compose -f docker-compose.yml -f lab/docker-compose.lab.yml up -d --scale app=3
+# or just `make lab`.
+#
+#   nginx      :8081  load balancer in front of N app replicas (DNS round-robin, resolves every 5 s)
+#   prometheus :9090  scrapes every app replica (docker DNS SD), nginx, redis, mongo
+#   grafana    :3000  provisioned datasource + the single lab dashboard (admin / admin)
+#   k6                load generator, run on demand by the lab runner (profile "tool")
+services:
+  app:
+    ports: !override []            # replicas can't all bind 8080; reach them through nginx
+    environment:
+      LAB_EXPERIMENT: ${LAB_EXPERIMENT:-}
+      LAB_ARM: ${LAB_ARM:-}
+      CACHE_ENABLED: ${CACHE_ENABLED:-false}
+      DEV_MODE: lab                 # no per-request console logging under load
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"               # each replica gets 1 CPU so "3 replicas" means something on one Mac
+          memory: 512M
+
+  nginx:
+    image: nginx:1.27.3-alpine
+    volumes:
+      - ${HOST_ROOT:-.}/lab/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8081:80"
+    depends_on:
+      - app
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+      - --web.enable-lifecycle
+    volumes:
+      - ${HOST_ROOT:-.}/lab/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prom-data:/prometheus
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"      # anyone on the laptop can view; editing needs admin
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_USERS_DEFAULT_THEME: light
+    volumes:
+      - ${HOST_ROOT:-.}/lab/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ${HOST_ROOT:-.}/lab/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.66.0-alpine
+    command: ["--redis.addr=redis://redis:6379"]
+
+  mongo-exporter:
+    image: percona/mongodb_exporter:0.43.1
+    command:
+      - --mongodb.uri=mongodb://mongo:27017
+      - --collector.diagnosticdata
+      - --collector.dbstats
+      - --collector.topmetrics
+      - --compatible-mode
+
+  k6:
+    image: grafana/k6:0.55.0
+    profiles: ["tool"]              # never started by `up`; the runner does `compose run k6 ...`
+    environment:
+      BASE_URL: http://nginx:80
+    volumes:
+      - ${HOST_ROOT:-.}/lab/k6:/scripts:ro
+      - ${HOST_ROOT:-.}/experiments:/experiments
+    working_dir: /scripts
+
+volumes:
+  prom-data:

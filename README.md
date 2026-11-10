@@ -5,7 +5,19 @@ A MERN e-commerce app (RBAC, product search, catalog filtering, Braintree paymen
 indexing, rate limiting, async queues, circuit breakers, concurrency control, CDN + real-time) each run by
 one command, watched live in Grafana, and written up with measured numbers.
 
-> Status: work in progress — Phase 0 (runnable baseline). See `docs/` as phases land.
+> Status: work in progress — Phases 0–2 done (app, CI, lab, experiment 01). Manual: [docs/GUIDE.md](docs/GUIDE.md).
+
+## Lab results so far
+
+| experiment | baseline | with the concept | change |
+|---|---:|---:|---:|
+| **01 caching** — max RPS with p95 < 300 ms | 814 req/s | 1,542 req/s | +89 % |
+| 01 caching — p95 at 400 req/s | 25 ms | 1.7 ms | −93 % |
+| 01 caching — MongoDB ops/s at 400 req/s | 390 | 4 | −99 % |
+
+Measured on one laptop (3 app replicas × 1 CPU behind nginx, Mongo + Redis local, k6 open-model ramp
+100 → 1,600 req/s, 45 s per stage). Full write-ups with charts: [experiments/](experiments/README.md).
+Run them yourself: `make lab && make experiment E=01-caching`.
 
 ## Run locally (Docker only)
 

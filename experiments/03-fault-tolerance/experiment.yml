@@ -1,0 +1,49 @@
+# Experiment 03 — Fault tolerance / redundancy
+id: 03-fault-tolerance
+title: Fault tolerance — a replica dies under load
+concept: >
+  Redundancy means one instance can fail without the service failing. The load balancer stops routing
+  to the dead replica (DNS entry disappears, nginx re-resolves within 5 s and retries failed connections
+  on another replica) and the survivors absorb its share.
+question: What do users see when one app instance is killed mid-traffic, with 1 replica vs 3?
+what_changes: docker kill one app container 60 s into a steady 300 req/s load
+
+arms:
+  single:
+    label: 1 replica, killed
+    replicas: 1
+    env: { CACHE_ENABLED: "false" }
+    hooks:
+      during:
+        - { at_s: 60, run: "docker kill shopease-app-1", label: "replica killed" }
+  redundant:
+    label: 3 replicas, one killed
+    replicas: 3
+    env: { CACHE_ENABLED: "false" }
+    hooks:
+      during:
+        - { at_s: 60, run: "docker kill shopease-app-2", label: "replica killed" }
+
+load:
+  script: browse.js
+  rates: [300, 300, 300]      # steady load; the event is the knob, not the rate
+  step_s: 45
+  warmup_s: 10
+
+sla_ms: 300
+max_error_pct: 1
+
+metrics:
+  - { name: rps,        unit: req/s, query: 'sum(rate(http_request_duration_seconds_count{job="app",route!~"/healthz|/metrics|/static/.*|other"}[15s]))' }
+  - { name: error_pct,  unit: '%', query: '100 * sum(rate(http_request_duration_seconds_count{job="app",status=~"5.."}[15s])) / sum(rate(http_request_duration_seconds_count{job="app"}[15s]))' }
+  - { name: p95_ms,     unit: ms, scale: 1000, query: 'histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="app",route!~"/healthz|/metrics|/static/.*|other"}[15s])))' }
+  - { name: replicas_up, unit: n, query: 'count(up{job="app"} == 1)' }
+
+headline:
+  - { metric: error_pct:max,   label: worst 15 s error rate (server side) }
+  - { metric: error_pct,       label: average error rate over the run }
+  - { metric: replicas_up:min, label: replicas up at the low point }
+
+caveats:
+  - Server-side metrics only see requests that reached an app; connection refusals show up in k6's failed % (k6 view in the report), which is the user's view.
+  - Failover time here is nginx's DNS re-resolve interval (5 s); an AWS ALB uses health-check thresholds instead (Phase 3 measures that).

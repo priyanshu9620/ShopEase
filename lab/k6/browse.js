@@ -24,9 +24,7 @@ export const options = {
       stages: RATES.map((r) => ({ target: r, duration: `${STEP_S}s` })),
     },
   },
-  thresholds: {
-    http_req_failed: ["rate<0.05"],
-  },
+  // no thresholds on purpose: a failing arm (e.g. a killed replica) is a result, not a k6 error
   summaryTrendStats: ["avg", "min", "med", "p(90)", "p(95)", "p(99)", "max"],
   discardResponseBodies: false,
 };

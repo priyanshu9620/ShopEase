@@ -143,7 +143,13 @@ export function armSummary(r, man) {
       const pts = (r.series[name]?.points || []).filter(([t, v]) => t >= from && t <= to && v != null);
       s[h.metric] = pts.length ? +(pts.reduce((a, [, v]) => a + v, 0) / pts.length).toFixed(1) : null;
     }
-    else if (!(name in s)) { const pts = (r.series[name]?.points || []).filter(([, v]) => v != null); s[name] = pts.length ? +(pts.reduce((a, [, v]) => a + v, 0) / pts.length).toFixed(1) : null; }
+    else if (!(h.metric in s)) {
+      // "<metric>" = average over the window, "<metric>:max" / "<metric>:min" = extreme
+      const [base, agg] = name.split(":");
+      const vals = (r.series[base]?.points || []).map(([, v]) => v).filter((v) => v != null);
+      if (!vals.length) { s[h.metric] = null; continue; }
+      s[h.metric] = +(agg === "max" ? Math.max(...vals) : agg === "min" ? Math.min(...vals) : vals.reduce((a, v) => a + v, 0) / vals.length).toFixed(1);
+    }
   }
   return s;
 }
@@ -156,7 +162,7 @@ function listExperiments() {
 banner(`${m.id} — ${m.title}`);
 console.log(`${m.question}\n\nWhat changes: ${m.what_changes}\nWhat to watch: Grafana → ${GRAFANA.replace("host.docker.internal", "localhost")}/d/shopease-lab  (arms appear as separate lines + shaded bands)\n`);
 const arms = Object.entries(m.arms).filter(([k]) => !ONLY || k === ONLY);
-for (let n = 1; n <= REPEATS; n++) for (const [name, arm] of arms) await runArm(name, arm, n);
+if (!args.includes("--report-only")) for (let n = 1; n <= REPEATS; n++) for (const [name, arm] of arms) await runArm(name, arm, n);
 banner("report");
 const summary = buildReport(ROOT, E, m, armSummary);
 console.log(summary);

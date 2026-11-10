@@ -8,6 +8,8 @@ import categoryRoutes from "./routes/categoryRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import cors from "cors";
 import mongoose from "mongoose";
+import { httpMetricsMiddleware, metricsHandler } from "./lib/metrics.js";
+import { status as redisStatus } from "./lib/redis.js";
 // this path is used for deployment
 import path from 'path';
 import {fileURLToPath} from 'url';
@@ -28,7 +30,10 @@ const app = express();
 //middelwares
 app.use(cors());
 app.use(express.json());
-app.use(morgan("dev"));
+// request logs are noise under load; LOG_REQUESTS=true turns them back on
+if (process.env.LOG_REQUESTS === "true" || process.env.DEV_MODE === "development") app.use(morgan("dev"));
+app.use(httpMetricsMiddleware);
+app.get("/metrics", metricsHandler);
 //for deployment middleware 
 app.use(express.static(path.join(__dirname,'./client/build')))
 
@@ -49,6 +54,7 @@ app.get("/healthz", async (req, res) => {
     version: process.env.APP_VERSION || "dev",
     replica: process.env.HOSTNAME || "local",
     mongo,
+    redis: redisStatus(), // "off" when REDIS_URL is unset; never fails the probe (cache is optional)
     uptime_s: Math.round(process.uptime()),
   });
 });

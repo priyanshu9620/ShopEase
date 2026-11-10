@@ -10,6 +10,8 @@ import cors from "cors";
 import mongoose from "mongoose";
 import { httpMetricsMiddleware, metricsHandler } from "./lib/metrics.js";
 import { status as redisStatus } from "./lib/redis.js";
+import { rateLimit } from "./lib/ratelimit.js";
+import labRoutes from "./routes/labRoutes.js";
 // this path is used for deployment
 import path from 'path';
 import {fileURLToPath} from 'url';
@@ -59,10 +61,15 @@ app.get("/healthz", async (req, res) => {
   });
 });
 
+// lab: per-client rate limit on the API (experiment 06); no-op unless RATE_LIMIT_ENABLED=true
+app.use("/api", rateLimit());
+
 //routes
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/category", categoryRoutes);
 app.use("/api/v1/product", productRoutes);
+// lab-only endpoints (experiment 09); off unless LAB_ROUTES=true
+if (process.env.LAB_ROUTES === "true") app.use("/api/v1/lab", labRoutes);
 
 //rest api
 //note this is a general route jo rehta hi hai welcome ke liye pheli baar khulega
@@ -79,8 +86,19 @@ app.use("*",function(req,res){
 const PORT = process.env.PORT || 8080;
 
 //run listen
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(
     `Server Running on ${process.env.DEV_MODE} mode on port ${PORT}`
   );
+});
+
+// Graceful shutdown (experiment 04): on SIGTERM stop accepting new connections, let in-flight
+// requests finish (up to GRACEFUL_TIMEOUT_MS), then exit. Docker sends SIGTERM on `stop`; without
+// this, Node dies instantly and every in-flight request becomes an error during a deploy.
+// GRACEFUL_SHUTDOWN=false reproduces the naive behaviour.
+process.on("SIGTERM", () => {
+  if ((process.env.GRACEFUL_SHUTDOWN || "true") !== "true") process.exit(0);
+  console.log("SIGTERM: draining");
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), Number(process.env.GRACEFUL_TIMEOUT_MS || 10000)).unref();
 });

@@ -156,6 +156,12 @@ async function main() {
     }
     process.stdout.write(`\r  ${Math.min(start + BATCH - 1, N)}/${N} (new: ${written})`);
   }
+  // trim seeded products above N (slugs end in the 5-digit seed index) so experiments that seed
+  // 50k and experiments that seed 5k never contaminate each other
+  const trimmed = await productModel.deleteMany({
+    $expr: { $cond: [{ $regexMatch: { input: "$slug", regex: "-[0-9]{5}$" } }, { $gt: [{ $toInt: { $substrCP: ["$slug", { $subtract: [{ $strLenCP: "$slug" }, 5] }, 5] } }, N] }, false] },
+  });
+  if (trimmed.deletedCount) console.log(`\ntrimmed ${trimmed.deletedCount} products above #${N}`);
   const total = await productModel.countDocuments();
   console.log(`\ndone in ${((Date.now() - t0) / 1000).toFixed(1)}s — ${total} products, ${catIds.length} categories, ${users.length} users`);
   await mongoose.disconnect();

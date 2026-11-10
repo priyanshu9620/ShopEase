@@ -1,0 +1,53 @@
+# Experiment 07 — Asynchronous processing with a queue
+id: 07-async-queue
+title: Async processing — move slow post-checkout work to a queue
+concept: >
+  After a payment the shop sends a confirmation email and builds an invoice. Done inline, the user
+  waits for the email provider on every checkout. Done asynchronously, the request only enqueues a
+  job in Redis (BullMQ) and returns; separate worker processes drain the queue, and you scale the
+  workers to match the inflow. The user-facing latency decouples from the provider's latency.
+question: What happens to checkout latency when the 300 ms post-order work moves to a queue, and how does worker count affect queue depth?
+what_changes: QUEUE_ENABLED=false → true; workers 1 → 3 (lib/postorder.js, worker.js)
+
+arms:
+  inline:
+    label: inline (no queue)
+    replicas: 3
+    workers: 0
+    env: { CACHE_ENABLED: "false", PAYMENT_MOCK: "true", QUEUE_ENABLED: "false", POST_ORDER_WORK_MS: "300" }
+  queue1:
+    label: queue, 1 worker
+    replicas: 3
+    workers: 1
+    env: { CACHE_ENABLED: "false", PAYMENT_MOCK: "true", QUEUE_ENABLED: "true", POST_ORDER_WORK_MS: "300" }
+  queue3:
+    label: queue, 3 workers
+    replicas: 3
+    workers: 3
+    env: { CACHE_ENABLED: "false", PAYMENT_MOCK: "true", QUEUE_ENABLED: "true", POST_ORDER_WORK_MS: "300" }
+
+load:
+  script: checkout.js
+  rates: [2, 4, 8]            # checkouts/s; 1 worker × 300 ms work = ~3 jobs/s capacity, so 8/s backs up
+  step_s: 45
+  warmup_s: 5
+
+sla_ms: 1000
+max_error_pct: 1
+
+metrics:
+  - { name: rps,          unit: req/s, query: 'sum(rate(http_request_duration_seconds_count{job="app",route="/api/v1/product/braintree/payment"}[15s]))' }
+  - { name: checkout_p95_ms, unit: ms, scale: 1000, query: 'histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="app",route="/api/v1/product/braintree/payment"}[15s])))' }
+  - { name: queue_depth,  unit: jobs, query: 'max(post_order_queue_depth) or vector(0)' }
+  - { name: jobs_done_per_s, unit: jobs/s, query: 'sum(rate(worker_jobs_total{result="ok"}[15s])) or vector(0)' }
+  - { name: job_wait_p95_s, unit: s, query: 'histogram_quantile(0.95, sum by (le) (rate(worker_job_wait_seconds_bucket[15s]))) or vector(0)' }
+
+headline:
+  - { metric: "k6:checkout_rt.p(95)", label: checkout p95 as the user sees it (ms) }
+  - { metric: queue_depth:max,        label: peak queue depth (jobs) }
+  - { metric: job_wait_p95_s:max,     label: worst p95 time a job waited (s) }
+
+caveats:
+  - The "email provider" is a 300 ms sleep plus a Mongo insert; a real provider is slower and flakier, which only strengthens the case.
+  - The payment gateway is the local mock (PAYMENT_MOCK=true, ~120–180 ms) so the sandbox is not hammered; the delta between arms is unaffected.
+  - Async means eventual: the user gets the order before the email exists; the report's job-wait p95 is that gap.

@@ -4,8 +4,8 @@ import orderModel from "../models/orderModel.js";
 
 import fs from "fs";
 import slugify from "slugify";
-import braintree from "braintree";
 import dotenv from "dotenv";
+import { createGateway } from "../lib/payments.js";
 
 dotenv.config();
 
@@ -338,12 +338,9 @@ export const realtedProductController = async (req, res) => {
 //payment gateway api
 
 // payment gateway
-var gateway = new braintree.BraintreeGateway({
-  environment: braintree.Environment.Sandbox,
-  merchantId: process.env.BRAINTREE_MERCHANT_ID,
-  publicKey: process.env.BRAINTREE_PUBLIC_KEY,
-  privateKey: process.env.BRAINTREE_PRIVATE_KEY,
-});
+// lab: the gateway is built by lib/payments.js — the real Braintree sandbox by default, a local mock
+// (PAYMENT_MOCK=true) and/or a circuit breaker (BREAKER_ENABLED=true) for experiments 07/08.
+var gateway = createGateway();
 
 //to get token
 export const braintreeTokenController = async (req, res) => {

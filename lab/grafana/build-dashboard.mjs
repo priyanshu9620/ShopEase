@@ -56,6 +56,42 @@ const ROWS = [
     ts("Redis memory", [[`redis_memory_used_bytes`, "used"]], { unit: "bytes" }),
     ts("Mongo query time per op (ms)", [[`rate(mongodb_ss_metrics_queryExecutor_scannedObjects[${RATE}])`, "docs scanned / s"]], { unit: "short" }),
   ]],
+  ["04 · Rolling deploy", true, [
+    state("Version per replica", [[`app_info{job="app"}`, "{{replica}}: {{version}}"]], { w: 12, h: 6 }),
+    ts("Replicas on v1 / v2", [[`count(app_info{job="app",version="v1"}) or vector(0)`, "v1"], [`count(app_info{job="app",version="v2"}) or vector(0)`, "v2"]], { w: 12 }),
+  ]],
+  ["09 · Concurrency control", true, [
+    ts("Buy attempts / s by outcome", [[`sum by (mode, outcome) (rate(lab_buy_total[${RATE}]))`, "{{mode}} · {{outcome}}"]], { unit: "ops", w: 12 }),
+  ]],
+  ["05 · DB indexing", true, [
+    ts("Mongo documents scanned / s", [[`rate(mongodb_ss_metrics_queryExecutor_scannedObjects[${RATE}])`, "scanned objects/s"]], { unit: "short" }),
+    ts("p95 product-by-slug / category", [
+      [`histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="app",route="/api/v1/product/get-product/:slug"}[${RATE}])))`, "get-product/:slug"],
+      [`histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="app",route="/api/v1/product/product-category/:slug"}[${RATE}])))`, "product-category/:slug"],
+    ], { unit: "s" }),
+    ts("Mongo CPU-ish: query executor scans / s", [[`rate(mongodb_ss_metrics_queryExecutor_scanned[${RATE}])`, "index keys scanned/s"]], { unit: "short" }),
+  ]],
+  ["06 · Rate limiting", true, [
+    ts("Requests / s by status", [[`sum by (status) (rate(http_request_duration_seconds_count{${APP}}[${RATE}]))`, "{{status}}"]], { unit: "reqps" }),
+    ts("429 / s by route", [[`sum by (route) (rate(rate_limited_total[${RATE}]))`, "{{route}}"]], { unit: "reqps" }),
+    ts("p95 of served (non-429) requests", [[`histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{${APP},status!="429"}[${RATE}])))`, "p95"]], { unit: "s" }),
+  ]],
+  ["07 · Async queue", true, [
+    ts("Checkout p95", [[`histogram_quantile(0.95, sum by (le, arm) (rate(http_request_duration_seconds_bucket{job="app",route="/api/v1/product/braintree/payment"}[${RATE}])))`, "arm={{arm}}"]], { unit: "s" }),
+    ts("Queue depth", [[`max(post_order_queue_depth)`, "waiting jobs"]], {}),
+    ts("Jobs / s per worker", [[`sum by (worker) (rate(worker_jobs_total{result="ok"}[${RATE}]))`, "{{worker}}"]], { unit: "ops" }),
+    ts("Job wait p95 (enqueue → pickup)", [[`histogram_quantile(0.95, sum by (le) (rate(worker_job_wait_seconds_bucket[${RATE}])))`, "wait p95"]], { unit: "s" }),
+  ]],
+  ["08 · Circuit breaker", true, [
+    state("Breaker state (0 closed · 1 half-open · 2 open)", [[`max by (replica) (payment_breaker_state)`, "{{replica}}"]], { w: 12, h: 5 }),
+    ts("Payment calls / s by result", [[`sum by (result) (rate(payment_calls_total[${RATE}]))`, "{{result}}"]], { unit: "ops", w: 12 }),
+    ts("Checkout p95 / max", [
+      [`histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="app",route="/api/v1/product/braintree/payment"}[${RATE}])))`, "p95"],
+      [`histogram_quantile(0.99, sum by (le) (rate(http_request_duration_seconds_bucket{job="app",route="/api/v1/product/braintree/payment"}[${RATE}])))`, "p99"],
+    ], { unit: "s" }),
+    ts("Requests in flight (all replicas)", [[`sum(http_requests_in_flight{job="app"})`, "in flight"]], {}),
+    ts("Payment call duration p95", [[`histogram_quantile(0.95, sum by (le) (rate(payment_call_duration_seconds_bucket[${RATE}])))`, "p95"]], { unit: "s" }),
+  ]],
   ["Replica resources", true, [
     ts("CPU % per replica", [[`100 * rate(process_cpu_seconds_total{job="app"}[${RATE}])`, "{{replica}}"]], { unit: "percent" }),
     ts("Memory per replica", [[`process_resident_memory_bytes{job="app"}`, "{{replica}}"]], { unit: "bytes" }),

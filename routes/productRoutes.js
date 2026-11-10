@@ -20,6 +20,7 @@ import formidable from "express-formidable";
 // lab: cache-aside (experiment 01). `cached` is a no-op unless CACHE_ENABLED=true; `invalidate`
 // bumps the namespace version after a successful write. Controllers are untouched.
 import { cached, invalidate } from "../lib/cache.js";
+import { afterOrder } from "../lib/postorder.js";
 
 const router = express.Router();
 
@@ -77,7 +78,7 @@ router.get("/product-category/:slug", cached("products", 60), productCategoryCon
 //token
 router.get("/braintree/token", braintreeTokenController);
 
-//payments
-router.post("/braintree/payment", requireSignIn, brainTreePaymentController);
+//payments  (lab: afterOrder() runs the post-checkout work inline or via the queue — experiment 07)
+router.post("/braintree/payment", requireSignIn, afterOrder(), brainTreePaymentController);
 
 export default router;

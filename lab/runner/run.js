@@ -76,7 +76,9 @@ async function runArm(armName, arm, n) {
   banner(`ARM ${label}  run ${n}/${REPEATS}  ${Object.entries(arm.env || {}).map(([k, v]) => `${k}=${v}`).join(" ")}`);
 
   log(`stack up: ${arm.replicas || 3} replica(s)`);
-  sh(`${COMPOSE} up -d --scale app=${arm.replicas || 3} --remove-orphans`, env);
+  // one-off app containers left by a rolling deploy (lab/hooks/deploy.sh) are not managed by `up`
+  try { sh(`docker rm -f $(docker ps -aq -f label=com.docker.compose.project=shopease -f label=com.docker.compose.service=app -f label=com.docker.compose.oneoff=True) 2>/dev/null || true`); } catch { /* none */ }
+  sh(`${COMPOSE} up -d --scale app=${arm.replicas || 3} --scale worker=${arm.workers || 0} --remove-orphans`, { ...env, WORKERS: String(arm.workers || 0) });
   await waitHealthy(arm.replicas || 3);
   for (const h of arm.hooks?.before || []) { log(`hook: ${h}`); await shLive(h, env); }
 
@@ -122,7 +124,8 @@ async function runArm(armName, arm, n) {
 function summarizeK6(k) {
   const v = (n) => k.metrics[n]?.values || {};
   const o = { requests: v("http_reqs").count, failed_pct: 100 * (v("http_req_failed").rate || 0), all: v("http_req_duration") };
-  for (const n of Object.keys(k.metrics)) if (n.startsWith("rt_")) o[n.slice(3)] = k.metrics[n].values;
+  // every custom metric's values object is kept under its own name (rt_list → list, normal_rt → normal_rt …)
+  for (const n of Object.keys(k.metrics)) if (!n.startsWith("http_") && !["iterations", "vus", "vus_max", "data_sent", "data_received", "checks", "iteration_duration", "dropped_iterations"].includes(n)) o[n.startsWith("rt_") ? n.slice(3) : n] = k.metrics[n].values;
   return o;
 }
 
@@ -135,7 +138,10 @@ export function armSummary(r, man) {
   s.max_rps_within_sla = Math.round(best);
   for (const h of man.headline || []) {
     const [name, at] = h.metric.split("@");
-    if (name.startsWith("k6:")) { s[h.metric] = r.k6 ? +(+r.k6[name.slice(3)]).toFixed(2) : null; continue; } // client-side numbers, e.g. k6:failed_pct
+    if (name.startsWith("k6:")) { // client-side numbers: k6:failed_pct, k6:normal_rt.p(95), k6:abuser_429.rate
+      const v = name.slice(3).split(".").reduce((o, k) => (o == null ? o : o[k]), r.k6raw || r.k6);
+      s[h.metric] = v == null || Number.isNaN(+v) ? null : +(+v).toFixed(3); continue;
+    }
     if (at) {
       // average over the last two-thirds of that stage (the ramp to the target rate is linear within a stage)
       const idx = r.rates.indexOf(Number(at));

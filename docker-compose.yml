@@ -1,0 +1,49 @@
+# Local run: app + MongoDB + Redis.
+#   docker compose up --build -d
+#   docker compose run --rm app node scripts/seed.js   # 5,000 products with photos
+#   open http://localhost:8080
+# The lab profile (Prometheus, Grafana, nginx, k6 runner) is added in Phase 2.
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-local}
+    image: shopease:local
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      PORT: "8080"
+      MONGO_URL: mongodb://mongo:27017
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "8080:8080"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7.0.14
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "27017:27017"   # handy for Compass / mongosh from the laptop
+
+  redis:
+    image: redis:7.4.1-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6379:6379"
+
+volumes:
+  mongo-data:

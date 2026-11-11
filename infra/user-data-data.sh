@@ -6,5 +6,6 @@ set -euxo pipefail
 dnf install -y docker
 systemctl enable --now docker
 mkdir -p /data/mongo
-docker run -d --name mongo --restart unless-stopped -p 27017:27017 -v /data/mongo:/data/db mongo:7.0.14
-docker run -d --name redis --restart unless-stopped -p 6379:6379 redis:7.4.1-alpine redis-server --save "" --appendonly no
+# memory caps: the box has 2 GB; an uncapped Mongo cache + Redis under load wedged it (P-30)
+docker run -d --name mongo --restart unless-stopped --memory 1g -p 27017:27017 -v /data/mongo:/data/db mongo:7.0.14 --wiredTigerCacheSizeGB 0.5
+docker run -d --name redis --restart unless-stopped --memory 512m -p 6379:6379 redis:7.4.1-alpine redis-server --save "" --appendonly no --maxmemory 400mb --maxmemory-policy allkeys-lru

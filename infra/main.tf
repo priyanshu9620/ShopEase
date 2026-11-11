@@ -171,6 +171,9 @@ resource "aws_instance" "data" {
   vpc_security_group_ids = [aws_security_group.data.id]
   iam_instance_profile   = aws_iam_instance_profile.instance.name
   user_data              = file("${path.module}/user-data-data.sh")
+  credit_specification {
+    cpu_credits = "unlimited" # t3 burst credits ran out mid-benchmark (P-30); unlimited costs cents, not stalls
+  }
   root_block_device {
     volume_size = 20
   }
@@ -189,7 +192,10 @@ resource "aws_instance" "loadgen" {
   vpc_security_group_ids = [aws_security_group.app.id] # outbound only is what it needs
   iam_instance_profile   = aws_iam_instance_profile.instance.name
   user_data              = "#!/bin/bash\ndnf install -y docker && systemctl enable --now docker && docker pull grafana/k6:0.55.0\n"
-  tags                   = { Name = "shopease-loadgen", Role = "loadgen" }
+  credit_specification {
+    cpu_credits = "unlimited"
+  }
+  tags = { Name = "shopease-loadgen", Role = "loadgen" }
 }
 
 # ---------------------------------------------------------------------------------------------
@@ -208,8 +214,11 @@ resource "aws_instance" "app" {
     image_tag = var.image_tag
   })
   user_data_replace_on_change = true
-  depends_on                  = [aws_ssm_parameter.app]
-  tags                        = { Name = "shopease-app-${count.index + 1}", Role = "app" }
+  credit_specification {
+    cpu_credits = "unlimited"
+  }
+  depends_on = [aws_ssm_parameter.app]
+  tags       = { Name = "shopease-app-${count.index + 1}", Role = "app" }
 }
 
 # ---------------------------------------------------------------------------------------------

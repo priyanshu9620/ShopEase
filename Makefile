@@ -54,3 +54,22 @@ experiment:
 	  -e HOST_ROOT="$(CURDIR)" -e GRAFANA_URL=http://host.docker.internal:3000 -e PROM_URL=http://host.docker.internal:9090 \
 	  -e LB_URL=http://host.docker.internal:8081 --add-host host.docker.internal:host-gateway \
 	  shopease-runner node /runner/run.js $(E) $(ARGS)
+
+# ---- AWS (Phase 3): OpenTofu in infra/, profile "shopease", region ap-southeast-2 -------------
+TOFU := cd infra && AWS_PROFILE=shopease tofu
+.PHONY: infra-init infra-plan infra-apply infra-destroy infra-output
+
+infra-init:
+	$(TOFU) init -input=false
+
+infra-plan:
+	$(TOFU) plan -input=false
+
+infra-apply:          # review `make infra-plan` first; this creates billable resources
+	$(TOFU) apply -input=false
+
+infra-destroy:        # tears everything down (ECR images included) — run after every session
+	$(TOFU) destroy -input=false
+
+infra-output:
+	$(TOFU) output

@@ -288,6 +288,7 @@ resource "aws_iam_user_policy" "github_deploy" {
       { Effect = "Allow", Action = ["ecr:GetAuthorizationToken"], Resource = "*" },
       { Effect = "Allow", Action = ["ecr:*"], Resource = aws_ecr_repository.app.arn },
       { Effect = "Allow", Action = ["ec2:DescribeInstances", "elasticloadbalancing:DescribeTargetHealth", "elasticloadbalancing:DescribeTargetGroups"], Resource = "*" },
+      { Effect = "Allow", Action = ["elasticloadbalancing:DeregisterTargets", "elasticloadbalancing:RegisterTargets"], Resource = aws_lb_target_group.app.arn },
       { Effect = "Allow", Action = ["ssm:SendCommand"], Resource = ["arn:aws:ssm:${var.region}::document/AWS-RunShellScript", "arn:aws:ec2:${var.region}:${data.aws_caller_identity.me.account_id}:instance/*"] },
       { Effect = "Allow", Action = ["ssm:GetCommandInvocation", "ssm:ListCommandInvocations"], Resource = "*" },
     ]

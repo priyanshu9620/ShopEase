@@ -58,6 +58,13 @@ jobs:
                 --query 'Reservations[].Instances[].InstanceId' --output text)
           for id in $IDS; do
             echo "== $id: deploy ${GITHUB_SHA::7}"
+            # take the instance out of the ALB first and let in-flight requests drain (deregistration delay 15 s);
+            # restarting in place and waiting for health checks to notice costs ~1 failed request per instance
+            aws elbv2 deregister-targets --target-group-arn "$TG" --targets Id=$id
+            for i in $(seq 1 12); do
+              S=$(aws elbv2 describe-target-health --target-group-arn "$TG" --targets Id=$id --query 'TargetHealthDescriptions[0].TargetHealth.State' --output text 2>/dev/null || echo unused)
+              [ "$S" = unused ] && break; sleep 5
+            done
             CMD=$(aws ssm send-command --instance-ids "$id" --document-name AWS-RunShellScript \
                   --comment "shopease deploy $GITHUB_SHA" \
                   --parameters "commands=[\"/opt/shopease/deploy.sh $GITHUB_SHA\"]" \
@@ -68,6 +75,7 @@ jobs:
               [ "$S" = Failed ] && { aws ssm get-command-invocation --command-id "$CMD" --instance-id "$id" --query StandardErrorContent --output text; exit 1; }
               sleep 5
             done
+            aws elbv2 register-targets --target-group-arn "$TG" --targets Id=$id,Port=8080
             echo "   waiting for the ALB to see $id healthy on the new version"
             for i in $(seq 1 60); do
               H=$(aws elbv2 describe-target-health --target-group-arn "$TG" --targets Id=$id --query 'TargetHealthDescriptions[0].TargetHealth.State' --output text)

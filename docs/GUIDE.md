@@ -86,6 +86,8 @@ Region `ap-southeast-2` (the account is region-locked); profile `shopease` in `~
 ```bash
 cp infra/terraform.tfvars.example infra/terraform.tfvars   # secrets → SSM Parameter Store
 make infra-plan && make infra-apply      # ~5 min (CloudFront is the slow part); prints alb_dns, cdn_url
+# after EVERY apply that follows a destroy: the deploy user's key is new → update the GitHub secrets
+#   AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY from `cd infra && tofu output -raw github_deploy_access_key_id|github_deploy_secret_access_key`
 # push to master (or re-run the deploy workflow) → image + client published, instances rolled
 make aws-migrate-photos                  # existing photos → S3 (photoUrl set); /product-photo 302s to the CDN
 make aws-bench ARM=cached ; make aws-bench ARM=uncached ; make aws-report   # experiment 10 (k6 on the loadgen)

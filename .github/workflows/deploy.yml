@@ -59,9 +59,10 @@ jobs:
       - name: Build the client and publish it to S3 + CloudFront
         run: |
           set -euo pipefail
-          BUCKET=$(aws s3api list-buckets --query "Buckets[?starts_with(Name, 'shopease-assets-')].Name | [0]" --output text)
-          DIST=$(aws cloudfront list-distributions --query "DistributionList.Items[?Comment!=null && starts_with(Comment, 'shopease')].Id | [0]" --output text)
-          if [ "$BUCKET" = None ] || [ -z "$BUCKET" ]; then echo "no assets bucket yet (Phase 4 infra not applied) — skipping"; exit 0; fi
+          # bucket name is deterministic (infra/cdn.tf): shopease-assets-<account id>; no ListAllMyBuckets needed
+          BUCKET="shopease-assets-$(aws sts get-caller-identity --query Account --output text)"
+          aws s3api head-bucket --bucket "$BUCKET" 2>/dev/null || { echo "no assets bucket yet (Phase 4 infra not applied) — skipping"; exit 0; }
+          DIST=$(aws cloudfront list-distributions --query "DistributionList.Items[?Comment!=null && starts_with(Comment, 'shopease')].Id | [0]" --output text 2>/dev/null || echo None)
           (cd client && npm ci --no-audit --no-fund && REACT_APP_API= GENERATE_SOURCEMAP=false npm run build)
           aws s3 sync client/build "s3://$BUCKET" --delete --exclude "photos/*" --cache-control "public, max-age=31536000, immutable" --exclude index.html
           aws s3 cp client/build/index.html "s3://$BUCKET/index.html" --cache-control "no-cache"

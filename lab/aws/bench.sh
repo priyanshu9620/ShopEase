@@ -3,7 +3,8 @@
 #   lab/aws/bench.sh <arm: cached|uncached> ["100 200 400 800 1200 1600"] [seconds-per-rate]
 # 1. sets /shopease/CACHE_ENABLED in SSM to match the arm and re-runs deploy.sh on every app instance
 # 2. runs one constant-rate k6 (lab/k6/browse.js) per rate on the loadgen instance via SSM Run Command
-# 3. saves k6 summaries to experiments/10-aws/results/<arm>-<rate>.k6.json  (then: make aws-report)
+# 3. saves k6 summaries to experiments/10-aws/results/<arm>-<rate>.k6.json (+ .out text)  (then: make aws-report)
+#    (k6 runs as root in the container so it can write the summary into the bind mount — P-29)
 set -euo pipefail
 export AWS_PROFILE="${AWS_PROFILE:-shopease}" AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-ap-southeast-2}"
 ARM="${1:?arm: cached|uncached}"; RATES="${2:-100 200 400 800 1200 1600}"; SECS="${3:-40}"
@@ -33,12 +34,11 @@ HALF=$((SECS / 2))
 for r in $RATES; do
   LABEL="$ARM-$r"
   CMD=$(aws ssm send-command --instance-ids "$LG" --document-name AWS-RunShellScript --timeout-seconds 900 \
-    --parameters "commands=[\"mkdir -p /tmp/k6\",\"echo $B64 | base64 -d > /tmp/k6/browse.js\",\"docker run --rm -v /tmp/k6:/scripts -e BASE_URL=$ALB -e RATES=$r,$r -e STEP_S=$HALF -e OUT=/scripts/$LABEL grafana/k6:0.55.0 run --quiet /scripts/browse.js 2>&1 | tail -8\",\"echo ===JSON===\",\"cat /tmp/k6/$LABEL.k6.json\"]" \
+    --parameters "commands=[\"mkdir -p /tmp/k6\",\"echo $B64 | base64 -d > /tmp/k6/browse.js\",\"docker run --rm --user root -v /tmp/k6:/scripts -e BASE_URL=$ALB -e RATES=$r,$r -e STEP_S=$HALF -e OUT=/scripts/$LABEL grafana/k6:0.55.0 run --quiet /scripts/browse.js 2>&1 | tail -8\",\"echo ===JSON===\",\"cat /tmp/k6/$LABEL.k6.json\"]" \
     --query 'Command.CommandId' --output text)
   ST=$(wait_cmd "$CMD" "$LG")
   aws ssm get-command-invocation --command-id "$CMD" --instance-id "$LG" --query StandardOutputContent --output text > "$OUT/$LABEL.out"
   echo "== $ARM @ $r req/s ($ST)"; sed -n '1,/===JSON===/p' "$OUT/$LABEL.out" | grep -E "requests|^all "
   sed -n '/===JSON===/,$p' "$OUT/$LABEL.out" | tail -n +2 > "$OUT/$LABEL.k6.json"
-  rm -f "$OUT/$LABEL.out"
 done
 echo "sweep $ARM done → make aws-report"

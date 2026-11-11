@@ -21,6 +21,8 @@ import formidable from "express-formidable";
 // bumps the namespace version after a successful write. Controllers are untouched.
 import { cached, invalidate } from "../lib/cache.js";
 import { afterOrder } from "../lib/postorder.js";
+// Phase 4: photos on S3/CloudFront (no-op unless PHOTO_STORAGE=s3)
+import { syncPhotoToS3, photoRedirect } from "../lib/photos.js";
 
 const router = express.Router();
 
@@ -32,6 +34,7 @@ router.post(
   isAdmin,
   formidable(),
   invalidate("products"),
+  syncPhotoToS3(),
   createProductController
 );
 //routes
@@ -41,6 +44,7 @@ router.put(
   isAdmin,
   formidable(),
   invalidate("products"),
+  syncPhotoToS3(),
   updateProductController
 );
 
@@ -51,7 +55,7 @@ router.get("/get-product", cached("products", 60), getProductController);
 router.get("/get-product/:slug", cached("products", 60), getSingleProductController);
 
 //get photo  (heaviest read: ~54 KB body straight from Mongo; long TTL, photos rarely change)
-router.get("/product-photo/:pid", cached("products", 600), productPhotoController);
+router.get("/product-photo/:pid", photoRedirect(), cached("products", 600), productPhotoController);
 
 //delete product
 router.delete("/delete-product/:pid", invalidate("products"), deleteProductController);

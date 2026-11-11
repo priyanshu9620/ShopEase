@@ -5,6 +5,7 @@ import axios from "axios";
 import { useAuth } from "../../context/auth";
 import moment from "moment";
 import { serverval } from "../../index";
+import useOrderUpdates from "../../hooks/useOrderUpdates";
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
@@ -21,6 +22,11 @@ const Orders = () => {
   useEffect(() => {
     if (auth?.token) getOrders();
   }, [auth?.token]);
+
+  // Phase 4: live status — no refresh needed when the admin updates an order
+  useOrderUpdates(auth?.token, ({ orderId, status }) =>
+    setOrders((prev) => prev.map((o) => (o._id === orderId ? { ...o, status, live: true } : o)))
+  );
   return (
     <Layout title={"Your Orders"}>
       <div className="container-flui p-3 m-3 dashboard">
@@ -47,7 +53,7 @@ const Orders = () => {
                     <tbody>
                       <tr>
                         <td>{i + 1}</td>
-                        <td>{o?.status}</td>
+                        <td>{o?.status}{o?.live ? " ⟳" : ""}</td>
                         <td>{o?.buyer?.name}</td>
                         <td>{moment(o?.createAt).fromNow()}</td>
                         <td>{o?.payment.success ? "Success" : "Failed"}</td>

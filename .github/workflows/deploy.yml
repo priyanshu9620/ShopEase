@@ -50,6 +50,24 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Phase 4: the React build is served by CloudFront from S3 (same-origin /api and /socket.io go to the ALB)
+      - uses: actions/setup-node@v4.1.0
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - name: Build the client and publish it to S3 + CloudFront
+        run: |
+          set -euo pipefail
+          BUCKET=$(aws s3api list-buckets --query "Buckets[?starts_with(Name, 'shopease-assets-')].Name | [0]" --output text)
+          DIST=$(aws cloudfront list-distributions --query "DistributionList.Items[?Comment!=null && starts_with(Comment, 'shopease')].Id | [0]" --output text)
+          if [ "$BUCKET" = None ] || [ -z "$BUCKET" ]; then echo "no assets bucket yet (Phase 4 infra not applied) — skipping"; exit 0; fi
+          (cd client && npm ci --no-audit --no-fund && REACT_APP_API= GENERATE_SOURCEMAP=false npm run build)
+          aws s3 sync client/build "s3://$BUCKET" --delete --exclude "photos/*" --cache-control "public, max-age=31536000, immutable" --exclude index.html
+          aws s3 cp client/build/index.html "s3://$BUCKET/index.html" --cache-control "no-cache"
+          [ "$DIST" != None ] && aws cloudfront create-invalidation --distribution-id "$DIST" --paths "/index.html" "/" >/dev/null
+          echo "client published to s3://$BUCKET (distribution $DIST)"
+
       - name: Rolling deploy, one instance at a time
         run: |
           set -euo pipefail

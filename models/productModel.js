@@ -31,6 +31,10 @@ const productSchema = new mongoose.Schema(
       data: Buffer,
       contentType: String,
     },
+    // Phase 4: set when the photo also lives on S3/CloudFront (lib/photos.js); optional
+    photoUrl: {
+      type: String,
+    },
     shipping: {
       type: Boolean,
     },

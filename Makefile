@@ -73,3 +73,13 @@ infra-destroy:        # tears everything down (ECR images included) — run afte
 
 infra-output:
 	$(TOFU) output
+
+# ---- AWS benchmark (experiment 10): runs k6 on the in-region loadgen instance -----------------
+.PHONY: aws-bench aws-report
+aws-bench:            # ARM=cached|uncached  RATES="100 200 400 800 1200 1600"  SECS=40
+	@test -n "$(ARM)" || (echo "usage: make aws-bench ARM=cached|uncached"; exit 1)
+	lab/aws/bench.sh $(ARM) "$(or $(RATES_AWS),100 200 400 800 1200 1600)" $(or $(SECS),40)
+
+aws-report:
+	@docker build -q -t shopease-runner lab/runner >/dev/null
+	docker run --rm -v "$(CURDIR):/work" -w /work shopease-runner node /runner/aws-report.mjs

@@ -1,2 +1,16 @@
 node_modules
 .env
+.env.*
+!.env.example
+
+# laptop git-template hooks (not part of this project)
+pre-commit-scripts/
+post-commit-scripts/
+.pre-commit-config.yaml
+
+# lab outputs that are regenerated per run
+experiments/*/results/
+.DS_Store
+
+# built React client (produced by the Dockerfile / CI, not committed any more)
+client/build/

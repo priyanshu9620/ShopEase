@@ -1,0 +1,122 @@
+# The lab stack, layered on top of docker-compose.yml:
+#   docker compose -f docker-compose.yml -f lab/docker-compose.lab.yml up -d --scale app=3
+# or just `make lab`.
+#
+#   nginx      :8081  load balancer in front of N app replicas (DNS round-robin, resolves every 5 s)
+#   prometheus :9090  scrapes every app replica (docker DNS SD), nginx, redis, mongo
+#   grafana    :3000  provisioned datasource + the single lab dashboard (admin / admin)
+#   k6                load generator, run on demand by the lab runner (profile "tool")
+services:
+  app:
+    ports: !override []            # replicas can't all bind 8080; reach them through nginx
+    environment:
+      LAB_EXPERIMENT: ${LAB_EXPERIMENT:-}
+      LAB_ARM: ${LAB_ARM:-}
+      CACHE_ENABLED: ${CACHE_ENABLED:-false}
+      SEED_PRODUCTS: ${SEED_PRODUCTS:-5000}   # experiments may seed bigger datasets (05-db-index: 50k)
+      SEED_PHOTO_PX: ${SEED_PHOTO_PX:-256}
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-false}   # experiment 06
+      RATE_LIMIT_RPS: ${RATE_LIMIT_RPS:-50}
+      PAYMENT_MOCK: ${PAYMENT_MOCK:-false}                # experiments 07/08: local stand-in for Braintree
+      PAYMENT_MOCK_DELAY_MS: ${PAYMENT_MOCK_DELAY_MS:-120}
+      PAYMENT_MOCK_HANG: ${PAYMENT_MOCK_HANG:-false}
+      BREAKER_ENABLED: ${BREAKER_ENABLED:-false}          # experiment 08
+      QUEUE_ENABLED: ${QUEUE_ENABLED:-false}              # experiment 07
+      POST_ORDER_WORK_MS: ${POST_ORDER_WORK_MS:-300}
+      GRACEFUL_SHUTDOWN: ${GRACEFUL_SHUTDOWN:-true}       # experiment 04
+      APP_VERSION: ${APP_VERSION:-v1}                     # runtime override of the build-time version (deploy experiment)
+      OVERSELL_MODE: ${OVERSELL_MODE:-atomic}             # experiment 09
+      LAB_ROUTES: "true"                                  # /api/v1/lab/* exists only in the lab stack
+      DEV_MODE: lab                 # no per-request console logging under load
+    stop_grace_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"               # each replica gets 1 CPU so "3 replicas" means something on one Mac
+          memory: 512M
+
+  # BullMQ worker for post-checkout jobs (experiment 07). 0 by default; the runner scales it per arm.
+  worker:
+    image: shopease:local
+    command: ["node", "worker.js"]
+    scale: ${WORKERS:-0}
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+      REDIS_URL: redis://redis:6379
+      LAB_EXPERIMENT: ${LAB_EXPERIMENT:-}
+      LAB_ARM: ${LAB_ARM:-}
+      POST_ORDER_WORK_MS: ${POST_ORDER_WORK_MS:-300}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-1}
+    depends_on:
+      - redis
+      - mongo
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+
+  nginx:
+    image: nginx:1.27.3-alpine
+    volumes:
+      - ${HOST_ROOT:-.}/lab/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8081:80"
+    depends_on:
+      - app
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+      - --web.enable-lifecycle
+    volumes:
+      - ${HOST_ROOT:-.}/lab/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prom-data:/prometheus
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"      # anyone on the laptop can view; editing needs admin
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_USERS_DEFAULT_THEME: light
+    volumes:
+      - ${HOST_ROOT:-.}/lab/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ${HOST_ROOT:-.}/lab/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.66.0-alpine
+    command: ["--redis.addr=redis://redis:6379"]
+
+  mongo-exporter:
+    image: percona/mongodb_exporter:0.43.1
+    command:
+      - --mongodb.uri=mongodb://mongo:27017
+      - --collector.diagnosticdata
+      - --collector.dbstats
+      - --collector.topmetrics
+      - --compatible-mode
+
+  k6:
+    image: grafana/k6:0.55.0
+    profiles: ["tool"]              # never started by `up`; the runner does `compose run k6 ...`
+    environment:
+      BASE_URL: http://nginx:80
+    volumes:
+      - ${HOST_ROOT:-.}/lab/k6:/scripts:ro
+      - ${HOST_ROOT:-.}/experiments:/experiments
+    working_dir: /scripts
+
+volumes:
+  prom-data:

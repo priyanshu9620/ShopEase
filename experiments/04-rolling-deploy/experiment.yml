@@ -1,0 +1,50 @@
+# Experiment 04 — Zero-downtime (rolling) deployment
+id: 04-rolling-deploy
+title: Rolling deploy with graceful shutdown vs restart-everything
+concept: >
+  Deploying by restarting every instance at once means a window where nothing answers. A rolling
+  deploy starts a new-version instance, waits until it is healthy and reachable through the load
+  balancer, then drains one old instance (SIGTERM → stop accepting, finish in-flight requests, exit)
+  and repeats. The service never has fewer healthy instances than before.
+question: How many user requests fail during a v1 → v2 deploy, naive vs rolling, under steady 200 req/s?
+what_changes: lab/hooks/deploy.sh naive → rolling (+ the SIGTERM drain handler in server.js)
+
+arms:
+  naive:
+    label: restart all at once
+    replicas: 3
+    env: { CACHE_ENABLED: "false", GRACEFUL_SHUTDOWN: "false", APP_VERSION: "v1" }
+    hooks:
+      during:
+        - { at_s: 40, run: "lab/hooks/deploy.sh naive", label: "deploy v2 (naive)" }
+  rolling:
+    label: rolling + graceful drain
+    replicas: 3
+    env: { CACHE_ENABLED: "false", GRACEFUL_SHUTDOWN: "true", APP_VERSION: "v1" }
+    hooks:
+      during:
+        - { at_s: 40, run: "lab/hooks/deploy.sh rolling", label: "deploy v2 (rolling)" }
+
+load:
+  script: browse.js
+  rates: [200, 200, 200]
+  step_s: 45
+  warmup_s: 10
+
+sla_ms: 300
+max_error_pct: 1
+
+metrics:
+  - { name: rps,        unit: req/s, query: 'sum(rate(http_request_duration_seconds_count{job="app",route!~"/healthz|/metrics|/static/.*|other"}[15s])) or vector(0)' }
+  - { name: p95_ms,     unit: ms, scale: 1000, query: 'histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="app",route!~"/healthz|/metrics|/static/.*|other"}[15s])))' }
+  - { name: replicas_v1, unit: n, query: 'count(app_info{job="app",version="v1"}) or vector(0)' }
+  - { name: replicas_v2, unit: n, query: 'count(app_info{job="app",version="v2"}) or vector(0)' }
+
+headline:
+  - { metric: k6:failed_pct,  label: requests failed during the run, user side (%) }
+  - { metric: replicas_v2:max, label: replicas on v2 at the end }
+
+caveats:
+  - v2 is the same image with a different APP_VERSION; a real deploy also pulls a new image, which only lengthens the naive outage.
+  - nginx discovers replicas by DNS every 5 s, so the rolling script waits 6 s after each add/remove; an ALB does this with health checks and deregistration delay (Phase 3 measures that path).
+  - Rolling takes ~3× longer than naive by design; the trade is deploy time for zero user-visible errors.

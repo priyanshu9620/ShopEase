@@ -1,0 +1,89 @@
+{
+ "experiment": "08-circuit-breaker",
+ "title": "Circuit breaker — when the payment provider hangs",
+ "generated": "2026-11-11T04:27:32.086Z",
+ "summary": {
+  "baseline": {
+   "label": "no breaker",
+   "runs": 1,
+   "env": {
+    "CACHE_ENABLED": "false",
+    "PAYMENT_MOCK": "true",
+    "BREAKER_ENABLED": "false"
+   },
+   "replicas": 3,
+   "max_rps_within_sla": 0,
+   "k6:checkout_rt.p(95)": 10312.527,
+   "k6:checkout_rt.max": 10321.452,
+   "in_flight:max": 104,
+   "error_pct:max": 0,
+   "k6": {
+    "requests": 1299,
+    "failed_pct": 0,
+    "p95_ms": 10312.5253452,
+    "p99_ms": 10315.26688816
+   }
+  },
+  "treatment": {
+   "label": "breaker ON",
+   "runs": 1,
+   "env": {
+    "CACHE_ENABLED": "false",
+    "PAYMENT_MOCK": "true",
+    "BREAKER_ENABLED": "true"
+   },
+   "replicas": 3,
+   "max_rps_within_sla": 0,
+   "k6:checkout_rt.p(95)": 2003.857,
+   "k6:checkout_rt.max": 2009.415,
+   "in_flight:max": 10,
+   "error_pct:max": 100,
+   "k6": {
+    "requests": 1351,
+    "failed_pct": 49.22279792746114,
+    "p95_ms": 2003.8505635,
+    "p99_ms": 2007.0922925
+   }
+  }
+ },
+ "headline": [
+  {
+   "metric": "k6:checkout_rt.p(95)",
+   "label": "checkout p95 over the whole run (ms)"
+  },
+  {
+   "metric": "k6:checkout_rt.max",
+   "label": "slowest checkout (ms)"
+  },
+  {
+   "metric": "in_flight:max",
+   "label": "peak requests stuck in flight"
+  },
+  {
+   "metric": "error_pct:max",
+   "label": "worst 15 s checkout error rate (%)"
+  }
+ ],
+ "charts": [
+  {
+   "name": "checkout_p95_ms",
+   "file": "checkout_p95_ms.svg"
+  },
+  {
+   "name": "in_flight",
+   "file": "in_flight.svg"
+  },
+  {
+   "name": "breaker_state",
+   "file": "breaker_state.svg"
+  },
+  {
+   "name": "payment_fast_fail_per_s",
+   "file": "payment_fast_fail_per_s.svg"
+  },
+  {
+   "name": "error_pct",
+   "file": "error_pct.svg"
+  }
+ ]
+}

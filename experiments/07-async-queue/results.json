@@ -1,0 +1,106 @@
+{
+ "experiment": "07-async-queue",
+ "title": "Async processing — move slow post-checkout work to a queue",
+ "generated": "2026-11-11T04:22:22.092Z",
+ "summary": {
+  "inline": {
+   "label": "inline (no queue)",
+   "runs": 1,
+   "env": {
+    "CACHE_ENABLED": "false",
+    "PAYMENT_MOCK": "true",
+    "QUEUE_ENABLED": "false",
+    "POST_ORDER_WORK_MS": "300"
+   },
+   "replicas": 3,
+   "max_rps_within_sla": 0,
+   "k6:checkout_rt.p(95)": 488.423,
+   "queue_depth:max": 0,
+   "job_wait_p95_s:max": 0,
+   "k6": {
+    "requests": 496,
+    "failed_pct": 0,
+    "p95_ms": 488.42053174999995,
+    "p99_ms": 493.00831875
+   }
+  },
+  "queue1": {
+   "label": "queue, 1 worker",
+   "runs": 1,
+   "env": {
+    "CACHE_ENABLED": "false",
+    "PAYMENT_MOCK": "true",
+    "QUEUE_ENABLED": "true",
+    "POST_ORDER_WORK_MS": "300"
+   },
+   "replicas": 3,
+   "max_rps_within_sla": 0,
+   "k6:checkout_rt.p(95)": 182.966,
+   "queue_depth:max": 126,
+   "job_wait_p95_s:max": 29,
+   "k6": {
+    "requests": 496,
+    "failed_pct": 0,
+    "p95_ms": 182.93264575,
+    "p99_ms": 188.91404105
+   }
+  },
+  "queue3": {
+   "label": "queue, 3 workers",
+   "runs": 1,
+   "env": {
+    "CACHE_ENABLED": "false",
+    "PAYMENT_MOCK": "true",
+    "QUEUE_ENABLED": "true",
+    "POST_ORDER_WORK_MS": "300"
+   },
+   "replicas": 3,
+   "max_rps_within_sla": 0,
+   "k6:checkout_rt.p(95)": 184.105,
+   "queue_depth:max": 0,
+   "job_wait_p95_s:max": 0,
+   "k6": {
+    "requests": 497,
+    "failed_pct": 0,
+    "p95_ms": 184.0887756,
+    "p99_ms": 187.85142804
+   }
+  }
+ },
+ "headline": [
+  {
+   "metric": "k6:checkout_rt.p(95)",
+   "label": "checkout p95 as the user sees it (ms)"
+  },
+  {
+   "metric": "queue_depth:max",
+   "label": "peak queue depth (jobs)"
+  },
+  {
+   "metric": "job_wait_p95_s:max",
+   "label": "worst p95 time a job waited (s)"
+  }
+ ],
+ "charts": [
+  {
+   "name": "rps",
+   "file": "rps.svg"
+  },
+  {
+   "name": "checkout_p95_ms",
+   "file": "checkout_p95_ms.svg"
+  },
+  {
+   "name": "queue_depth",
+   "file": "queue_depth.svg"
+  },
+  {
+   "name": "jobs_done_per_s",
+   "file": "jobs_done_per_s.svg"
+  },
+  {
+   "name": "job_wait_p95_s",
+   "file": "job_wait_p95_s.svg"
+  }
+ ]
+}

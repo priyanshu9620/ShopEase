@@ -1,0 +1,97 @@
+{
+ "experiment": "02-scale-out",
+ "title": "Horizontal scaling behind a load balancer",
+ "generated": "2026-11-10T18:33:21.178Z",
+ "summary": {
+  "one": {
+   "label": "1 replica",
+   "runs": 1,
+   "env": {
+    "CACHE_ENABLED": "false"
+   },
+   "replicas": 1,
+   "max_rps_within_sla": 313,
+   "p95_ms@400": 62,
+   "p95_ms@800": 97.2,
+   "app_cpu_pct:max": 100.1,
+   "k6": {
+    "requests": 122494,
+    "failed_pct": 48.604829624308124,
+    "p95_ms": 2947.5494985999994,
+    "p99_ms": 14467.82771258
+   }
+  },
+  "two": {
+   "label": "2 replicas",
+   "runs": 1,
+   "env": {
+    "CACHE_ENABLED": "false"
+   },
+   "replicas": 2,
+   "max_rps_within_sla": 603,
+   "p95_ms@400": 39.6,
+   "p95_ms@800": 91.5,
+   "app_cpu_pct:max": 198.2,
+   "k6": {
+    "requests": 110297,
+    "failed_pct": 9.468979210676627,
+    "p95_ms": 4274.825128999999,
+    "p99_ms": 5821.0413929999995
+   }
+  },
+  "three": {
+   "label": "3 replicas",
+   "runs": 1,
+   "env": {
+    "CACHE_ENABLED": "false"
+   },
+   "replicas": 3,
+   "max_rps_within_sla": 827,
+   "p95_ms@400": 22.9,
+   "p95_ms@800": 66.6,
+   "app_cpu_pct:max": 296.8,
+   "k6": {
+    "requests": 123352,
+    "failed_pct": 0.28049808677605553,
+    "p95_ms": 3854.991280649999,
+    "p99_ms": 5844.1822922500005
+   }
+  }
+ },
+ "headline": [
+  {
+   "metric": "max_rps_within_sla",
+   "label": "max RPS with p95 < 300 ms"
+  },
+  {
+   "metric": "p95_ms@400",
+   "label": "p95 at 400 req/s"
+  },
+  {
+   "metric": "p95_ms@800",
+   "label": "p95 at 800 req/s"
+  },
+  {
+   "metric": "app_cpu_pct:max",
+   "label": "peak app CPU (sum of replicas)"
+  }
+ ],
+ "charts": [
+  {
+   "name": "rps",
+   "file": "rps.svg"
+  },
+  {
+   "name": "p95_ms",
+   "file": "p95_ms.svg"
+  },
+  {
+   "name": "app_cpu_pct",
+   "file": "app_cpu_pct.svg"
+  },
+  {
+   "name": "replicas_up",
+   "file": "replicas_up.svg"
+  }
+ ]
+}

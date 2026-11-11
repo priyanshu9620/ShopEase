@@ -1,0 +1,49 @@
+# Experiment 02 — Horizontal scaling + load balancing
+id: 02-scale-out
+title: Horizontal scaling behind a load balancer
+concept: >
+  Instead of a bigger machine, run more copies of the stateless app and spread requests across them.
+  nginx discovers the replicas through DNS and round-robins; each replica is capped at 1 CPU so the
+  count is what changes, not the size.
+question: How does maximum sustainable throughput change with 1, 2 and 3 app replicas?
+what_changes: docker compose --scale app=1 → 2 → 3 (nothing in the code)
+
+arms:
+  one:
+    label: 1 replica
+    replicas: 1
+    env: { CACHE_ENABLED: "false" }
+  two:
+    label: 2 replicas
+    replicas: 2
+    env: { CACHE_ENABLED: "false" }
+  three:
+    label: 3 replicas
+    replicas: 3
+    env: { CACHE_ENABLED: "false" }
+
+load:
+  script: browse.js
+  rates: [100, 200, 400, 800, 1200, 1600]
+  step_s: 45
+  warmup_s: 15
+
+sla_ms: 300
+max_error_pct: 1
+
+metrics:
+  - { name: rps,        unit: req/s, query: 'sum(rate(http_request_duration_seconds_count{job="app",route!~"/healthz|/metrics|/static/.*|other"}[15s]))' }
+  - { name: p95_ms,     unit: ms, scale: 1000, query: 'histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="app",route!~"/healthz|/metrics|/static/.*|other"}[15s])))' }
+  - { name: error_pct,  unit: '%', query: '100 * sum(rate(http_request_duration_seconds_count{job="app",status=~"5.."}[15s])) / sum(rate(http_request_duration_seconds_count{job="app"}[15s]))' }
+  - { name: app_cpu_pct, unit: '%', query: 'sum(100 * rate(process_cpu_seconds_total{job="app"}[15s]))' }
+  - { name: replicas_up, unit: n, query: 'count(up{job="app"} == 1)' }
+
+headline:
+  - { metric: max_rps_within_sla, label: max RPS with p95 < 300 ms }
+  - { metric: p95_ms@400,         label: p95 at 400 req/s }
+  - { metric: p95_ms@800,         label: p95 at 800 req/s }
+  - { metric: app_cpu_pct:max,    label: peak app CPU (sum of replicas) }
+
+caveats:
+  - All replicas, nginx, k6, Mongo and Redis share one laptop's cores; scaling stops paying off once the host is saturated. The AWS run (3 real instances) is the honest version.
+  - Cache is OFF so every request reaches Mongo; the shared database becomes the ceiling before the replicas do.

@@ -1,0 +1,50 @@
+# Experiment 01 — Caching (cache-aside with Redis)
+id: 01-caching
+title: Caching with Redis (cache-aside)
+concept: >
+  Read-heavy endpoints hit MongoDB on every request. A cache-aside layer answers repeated reads from
+  Redis and only falls through to Mongo on a miss; writes bump a namespace version so stale entries
+  are never served.
+question: How much latency and throughput does cache-aside buy on the catalogue read path?
+what_changes: CACHE_ENABLED=false → true (lib/cache.js wraps the read routes; controllers untouched)
+
+arms:
+  baseline:
+    label: cache OFF
+    replicas: 3
+    env: { CACHE_ENABLED: "false" }
+  treatment:
+    label: cache ON
+    replicas: 3
+    env: { CACHE_ENABLED: "true" }
+
+load:
+  script: browse.js
+  rates: [100, 200, 400, 800, 1200, 1600]   # requests/s, one stage each
+  step_s: 45
+  warmup_s: 15
+
+# "max sustainable RPS" = highest 15 s window where p95 < sla_ms and errors < max_error_pct
+sla_ms: 300
+max_error_pct: 1
+
+# series snapshotted from Prometheus over each arm's window (unit → chart axis)
+metrics:
+  - { name: rps,        unit: req/s, query: 'sum(rate(http_request_duration_seconds_count{job="app",route!~"/healthz|/metrics|/static/.*|other"}[15s]))' }
+  - { name: p95_ms,     unit: ms,    scale: 1000, query: 'histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="app",route!~"/healthz|/metrics|/static/.*|other"}[15s])))' }
+  - { name: p99_ms,     unit: ms,    scale: 1000, query: 'histogram_quantile(0.99, sum by (le) (rate(http_request_duration_seconds_bucket{job="app",route!~"/healthz|/metrics|/static/.*|other"}[15s])))' }
+  - { name: error_pct,  unit: '%',   query: '100 * sum(rate(http_request_duration_seconds_count{job="app",status=~"5.."}[15s])) / sum(rate(http_request_duration_seconds_count{job="app"}[15s]))' }
+  - { name: cache_hit_pct, unit: '%', query: '100 * sum(rate(cache_ops_total{result="hit"}[15s])) / sum(rate(cache_ops_total{result=~"hit|miss"}[15s]))' }
+  - { name: mongo_ops,  unit: ops/s, query: 'sum(rate(mongodb_op_counters_total{type=~"query|getmore"}[15s]))' }
+  - { name: app_cpu_pct, unit: '%',  query: 'sum(100 * rate(process_cpu_seconds_total{job="app"}[15s]))' }
+
+# which numbers the report headlines (from the per-arm summary)
+headline:
+  - { metric: max_rps_within_sla, label: max RPS with p95 < 300 ms }
+  - { metric: p95_ms@400,         label: p95 at 400 req/s }
+  - { metric: mongo_ops@400,      label: Mongo ops/s at 400 req/s }
+  - { metric: cache_hit_pct,      label: cache hit rate (avg) }
+
+caveats:
+  - One laptop runs the load generator, nginx, three 1-CPU replicas, Mongo and Redis; absolute numbers are machine-specific, the delta is the result.
+  - The browse mix is 35 % photo requests (~54 KB bodies), which is where cache-aside pays most.

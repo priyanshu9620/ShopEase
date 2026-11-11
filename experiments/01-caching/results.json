@@ -1,0 +1,87 @@
+{
+ "experiment": "01-caching",
+ "title": "Caching with Redis (cache-aside)",
+ "generated": "2026-11-10T18:17:16.493Z",
+ "summary": {
+  "baseline": {
+   "label": "cache OFF",
+   "runs": 1,
+   "env": {
+    "CACHE_ENABLED": "false"
+   },
+   "replicas": 3,
+   "max_rps_within_sla": 814,
+   "p95_ms@400": 25.1,
+   "mongo_ops@400": 390.5,
+   "cache_hit_pct": null,
+   "k6": {
+    "requests": 124411,
+    "failed_pct": 0.21782639798731623,
+    "p95_ms": 3775.2365019999993,
+    "p99_ms": 5657.8098359999985
+   }
+  },
+  "treatment": {
+   "label": "cache ON",
+   "runs": 1,
+   "env": {
+    "CACHE_ENABLED": "true"
+   },
+   "replicas": 3,
+   "max_rps_within_sla": 1542,
+   "p95_ms@400": 1.7,
+   "mongo_ops@400": 4,
+   "cache_hit_pct": 99.3,
+   "k6": {
+    "requests": 159731,
+    "failed_pct": 0,
+    "p95_ms": 2.4877499999999992,
+    "p99_ms": 7.0717787
+   }
+  }
+ },
+ "headline": [
+  {
+   "metric": "max_rps_within_sla",
+   "label": "max RPS with p95 < 300 ms"
+  },
+  {
+   "metric": "p95_ms@400",
+   "label": "p95 at 400 req/s"
+  },
+  {
+   "metric": "mongo_ops@400",
+   "label": "Mongo ops/s at 400 req/s"
+  },
+  {
+   "metric": "cache_hit_pct",
+   "label": "cache hit rate (avg)"
+  }
+ ],
+ "charts": [
+  {
+   "name": "rps",
+   "file": "rps.svg"
+  },
+  {
+   "name": "p95_ms",
+   "file": "p95_ms.svg"
+  },
+  {
+   "name": "p99_ms",
+   "file": "p99_ms.svg"
+  },
+  {
+   "name": "cache_hit_pct",
+   "file": "cache_hit_pct.svg"
+  },
+  {
+   "name": "mongo_ops",
+   "file": "mongo_ops.svg"
+  },
+  {
+   "name": "app_cpu_pct",
+   "file": "app_cpu_pct.svg"
+  }
+ ]
+}

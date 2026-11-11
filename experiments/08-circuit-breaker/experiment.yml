@@ -1,0 +1,56 @@
+# Experiment 08 — Circuit breaker + timeouts
+id: 08-circuit-breaker
+title: Circuit breaker — when the payment provider hangs
+concept: >
+  A dependency that hangs is worse than one that errors: every request holds a connection and a
+  worker slot until it times out, and the pile-up spreads to unrelated endpoints. A circuit breaker
+  tracks failures; after a threshold it "opens" and fails calls immediately for a cooling period,
+  then lets a trial request through (half-open) to detect recovery. Users get a fast, honest error
+  instead of a 10 s wait, and the rest of the site stays healthy.
+question: With the payment provider hanging mid-run, what do checkout latency and the catalogue's latency look like with and without a breaker?
+what_changes: BREAKER_ENABLED=false → true (lib/payments.js, opossum; 2 s timeout, opens at 50 % failures, 10 s reset)
+
+arms:
+  baseline:
+    label: no breaker
+    replicas: 3
+    env: { CACHE_ENABLED: "false", PAYMENT_MOCK: "true", BREAKER_ENABLED: "false" }
+    hooks:
+      during:
+        - { at_s: 45,  run: "lab/hooks/payment-hang.sh on",  label: "payment provider hangs" }
+        - { at_s: 105, run: "lab/hooks/payment-hang.sh off", label: "payment provider recovers" }
+  treatment:
+    label: breaker ON
+    replicas: 3
+    env: { CACHE_ENABLED: "false", PAYMENT_MOCK: "true", BREAKER_ENABLED: "true" }
+    hooks:
+      during:
+        - { at_s: 45,  run: "lab/hooks/payment-hang.sh on",  label: "payment provider hangs" }
+        - { at_s: 105, run: "lab/hooks/payment-hang.sh off", label: "payment provider recovers" }
+
+load:
+  script: checkout.js
+  rates: [10, 10, 10]        # steady checkouts/s for 135 s: healthy → hang at 45 s → recovery at 105 s
+  step_s: 45
+  warmup_s: 5
+
+sla_ms: 1000
+max_error_pct: 1
+
+metrics:
+  - { name: checkout_p95_ms, unit: ms, scale: 1000, query: 'histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="app",route="/api/v1/product/braintree/payment"}[15s])))' }
+  - { name: in_flight,       unit: req, query: 'sum(http_requests_in_flight{job="app"})' }
+  - { name: breaker_state,   unit: state, query: 'max(payment_breaker_state) or vector(0)' }
+  - { name: payment_fast_fail_per_s, unit: req/s, query: 'sum(rate(payment_calls_total{result="rejected_open"}[15s])) or vector(0)' }
+  - { name: error_pct,       unit: '%', query: '(100 * sum(rate(http_request_duration_seconds_count{job="app",route="/api/v1/product/braintree/payment",status=~"5.."}[15s])) / sum(rate(http_request_duration_seconds_count{job="app",route="/api/v1/product/braintree/payment"}[15s]))) or vector(0)' }
+
+headline:
+  - { metric: "k6:checkout_rt.p(95)", label: checkout p95 over the whole run (ms) }
+  - { metric: "k6:checkout_rt.max",   label: slowest checkout (ms) }
+  - { metric: in_flight:max,          label: peak requests stuck in flight }
+  - { metric: error_pct:max,          label: worst 15 s checkout error rate (%) }
+
+caveats:
+  - Both arms fail checkouts while the provider is down — the breaker does not make payments succeed, it makes failure fast (ms instead of 10 s) and stops the pile-up.
+  - The hang is simulated in the payment mock (PAYMENT_MOCK_HANG via a Redis flag read per call); a real outage also degrades slowly first, which is where error-rate thresholds matter.
+  - The circuit is per replica (opossum is in-process); each of the 3 replicas opens on its own evidence.

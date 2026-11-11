@@ -1,0 +1,14 @@
+node_modules
+client/node_modules
+client/build
+.env
+.env.*
+!.env.example
+.git
+.github
+.vscode
+pre-commit-scripts
+post-commit-scripts
+.pre-commit-config.yaml
+experiments/*/results
+*.md

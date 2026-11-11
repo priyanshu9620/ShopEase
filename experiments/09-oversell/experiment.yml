@@ -1,0 +1,43 @@
+# Experiment 09 — Concurrency control (no overselling)
+id: 09-oversell
+title: Concurrency control — 200 buyers, 1 unit in stock
+concept: >
+  "Read the stock, check it, then write stock−1" is two operations; between them another request can
+  do the same, and both sell the last unit. Across 3 replicas there is no process-level lock that
+  helps. The fix is to make the check and the write one atomic operation at the database —
+  findOneAndUpdate with the condition quantity > 0 and $inc — so exactly one buyer wins.
+question: With one unit in stock and 200 simultaneous buyers, how many units get sold with read-then-write vs an atomic conditional update?
+what_changes: OVERSELL_MODE=naive → atomic (routes/labRoutes.js)
+
+arms:
+  naive:
+    label: read-then-write
+    replicas: 3
+    env: { CACHE_ENABLED: "false", OVERSELL_MODE: "naive" }
+  atomic:
+    label: atomic conditional update
+    replicas: 3
+    env: { CACHE_ENABLED: "false", OVERSELL_MODE: "atomic" }
+
+load:
+  script: oversell.js
+  rates: [1]                  # unused by this script (per-VU rounds); kept for the runner's banner
+  step_s: 1
+  warmup_s: 0
+
+sla_ms: 1000
+max_error_pct: 100
+
+metrics:
+  - { name: buys_per_s,  unit: req/s, query: 'sum(rate(lab_buy_total[15s])) or vector(0)' }
+  - { name: sold_per_s,  unit: req/s, query: 'sum(rate(lab_buy_total{outcome="sold"}[15s])) or vector(0)' }
+
+headline:
+  - { metric: "k6:rounds.count",   label: rounds (1 unit in stock each) }
+  - { metric: "k6:sold.count",     label: units actually sold }
+  - { metric: "k6:sold_out.count", label: buyers told "sold out" }
+
+caveats:
+  - 200 virtual users fire within a few ms of each other; a real flash sale has thousands over seconds, which makes the naive race more likely, not less.
+  - The atomic update is per document; a cart with several products needs a multi-document transaction or per-item reservation — the next concept up.
+  - Buyers are spread over 3 replicas on purpose: an in-process mutex would look correct on 1 replica and still oversell on 3.

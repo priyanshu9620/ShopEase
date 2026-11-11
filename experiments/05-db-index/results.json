@@ -1,0 +1,85 @@
+{
+ "experiment": "05-db-index",
+ "title": "Database indexing — collection scans vs B-tree lookups",
+ "generated": "2026-11-11T04:06:29.576Z",
+ "summary": {
+  "baseline": {
+   "label": "no indexes",
+   "runs": 1,
+   "env": {
+    "CACHE_ENABLED": "false",
+    "SEED_PRODUCTS": "50000",
+    "SEED_PHOTO_PX": "64"
+   },
+   "replicas": 3,
+   "max_rps_within_sla": 360,
+   "p95_product_ms@100": 24.3,
+   "docs_scanned_per_s@100": 2441220.8,
+   "k6": {
+    "requests": 26103,
+    "failed_pct": 0,
+    "p95_ms": 18.316491299999996,
+    "p99_ms": 127.78063949999981
+   }
+  },
+  "treatment": {
+   "label": "slug + category indexed",
+   "runs": 1,
+   "env": {
+    "CACHE_ENABLED": "false",
+    "SEED_PRODUCTS": "50000",
+    "SEED_PHOTO_PX": "64"
+   },
+   "replicas": 3,
+   "max_rps_within_sla": 358,
+   "p95_product_ms@100": 4.5,
+   "docs_scanned_per_s@100": 190.1,
+   "k6": {
+    "requests": 26478,
+    "failed_pct": 0,
+    "p95_ms": 5.18058745,
+    "p99_ms": 15.705684679999948
+   }
+  }
+ },
+ "headline": [
+  {
+   "metric": "max_rps_within_sla",
+   "label": "max RPS with p95 < 300 ms"
+  },
+  {
+   "metric": "p95_product_ms@100",
+   "label": "product-by-slug p95 at 100 req/s (ms)"
+  },
+  {
+   "metric": "docs_scanned_per_s@100",
+   "label": "Mongo documents scanned per second at 100 req/s"
+  }
+ ],
+ "charts": [
+  {
+   "name": "rps",
+   "file": "rps.svg"
+  },
+  {
+   "name": "p95_ms",
+   "file": "p95_ms.svg"
+  },
+  {
+   "name": "p95_product_ms",
+   "file": "p95_product_ms.svg"
+  },
+  {
+   "name": "p95_related_ms",
+   "file": "p95_related_ms.svg"
+  },
+  {
+   "name": "docs_scanned_per_s",
+   "file": "docs_scanned_per_s.svg"
+  },
+  {
+   "name": "error_pct",
+   "file": "error_pct.svg"
+  }
+ ]
+}

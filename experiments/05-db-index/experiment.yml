@@ -1,0 +1,56 @@
+# Experiment 05 — Database indexing
+id: 05-db-index
+title: Database indexing — collection scans vs B-tree lookups
+concept: >
+  Without an index, findOne({slug}) and find({category}) read every document in the collection
+  (a collection scan, O(n)); with an index Mongo walks a B-tree and touches only matching documents
+  (O(log n)). The effect is invisible at 5,000 products and brutal at 50,000, so this experiment seeds
+  50,000 and watches "documents scanned per second".
+question: What do indexes on slug and category do to lookup latency and Mongo work at 50k products?
+what_changes: db.products.createIndex({slug:1}) and createIndex({category:1}) — no code change
+
+arms:
+  baseline:
+    label: no indexes
+    replicas: 3
+    env: { CACHE_ENABLED: "false", SEED_PRODUCTS: "50000", SEED_PHOTO_PX: "64" }
+    hooks:
+      before:
+        - docker exec shopease-mongo-1 mongosh --quiet ecommerce --eval 'db.products.dropIndexes()'
+  treatment:
+    label: slug + category indexed
+    replicas: 3
+    env: { CACHE_ENABLED: "false", SEED_PRODUCTS: "50000", SEED_PHOTO_PX: "64" }
+    hooks:
+      before:
+        - docker exec shopease-mongo-1 mongosh --quiet ecommerce --eval 'db.products.createIndex({slug:1}); db.products.createIndex({category:1})'
+      after:
+        # leave the database as the other experiments expect it (no indexes; the next seed trims back to 5k)
+        - docker exec shopease-mongo-1 mongosh --quiet ecommerce --eval 'db.products.dropIndexes()'
+
+load:
+  script: catalog.js
+  rates: [25, 50, 100, 200, 400]
+  step_s: 45
+  warmup_s: 10
+
+sla_ms: 300
+max_error_pct: 1
+
+metrics:
+  - { name: rps,          unit: req/s, query: 'sum(rate(http_request_duration_seconds_count{job="app",route!~"/healthz|/metrics|/static/.*|other"}[15s]))' }
+  - { name: p95_ms,       unit: ms, scale: 1000, query: 'histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="app",route!~"/healthz|/metrics|/static/.*|other"}[15s])))' }
+  - { name: p95_product_ms, unit: ms, scale: 1000, query: 'histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="app",route="/api/v1/product/get-product/:slug"}[15s])))' }
+  - { name: p95_related_ms, unit: ms, scale: 1000, query: 'histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="app",route="/api/v1/product/related-product/:pid/:cid"}[15s])))' }
+  - { name: docs_scanned_per_s, unit: docs/s, query: 'rate(mongodb_ss_metrics_queryExecutor_scannedObjects[15s])' }
+  - { name: error_pct,    unit: '%', query: '(100 * sum(rate(http_request_duration_seconds_count{job="app",status=~"5.."}[15s])) / sum(rate(http_request_duration_seconds_count{job="app"}[15s]))) or vector(0)' }
+
+headline:
+  - { metric: max_rps_within_sla,     label: max RPS with p95 < 300 ms }
+  - { metric: p95_product_ms@100,     label: product-by-slug p95 at 100 req/s (ms) }
+  - { metric: docs_scanned_per_s@100, label: Mongo documents scanned per second at 100 req/s }
+
+caveats:
+  - 50,000 products with 64 px photos (so the dataset fits); the other experiments use 5,000 with 256 px photos.
+  - Search (`/search/:keyword`) is a case-insensitive regex and cannot use these indexes; that needs a text index or a search engine (see the experiments backlog).
+  - The category listing endpoint is excluded: it returns every product in the category including photo bytes (~4,000 docs at 50k), so it would measure payload size, not indexing. Pagination + `select("-photo")` is the fix, outside this experiment's scope.

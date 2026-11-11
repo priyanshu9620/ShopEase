@@ -1,0 +1,70 @@
+{
+ "experiment": "03-fault-tolerance",
+ "title": "Fault tolerance — a replica dies under load",
+ "generated": "2026-11-10T18:56:30.305Z",
+ "summary": {
+  "single": {
+   "label": "1 replica, killed",
+   "runs": 1,
+   "env": {
+    "CACHE_ENABLED": "false"
+   },
+   "replicas": 1,
+   "max_rps_within_sla": 301,
+   "k6:failed_pct": 56.21,
+   "rps": 106.6,
+   "k6": {
+    "requests": 40279,
+    "failed_pct": 56.20546686859157,
+    "p95_ms": 588.1612795,
+    "p99_ms": 1999.99184048
+   }
+  },
+  "redundant": {
+   "label": "3 replicas, one killed",
+   "runs": 1,
+   "env": {
+    "CACHE_ENABLED": "false"
+   },
+   "replicas": 3,
+   "max_rps_within_sla": 307,
+   "k6:failed_pct": 0,
+   "rps": 256.9,
+   "k6": {
+    "requests": 40480,
+    "failed_pct": 0,
+    "p95_ms": 112.94702324999986,
+    "p99_ms": 218.0847393199997
+   }
+  }
+ },
+ "headline": [
+  {
+   "metric": "k6:failed_pct",
+   "label": "requests failed",
+   "as the user sees it (%)": null
+  },
+  {
+   "metric": "rps",
+   "label": "average throughput over the run (req/s)"
+  }
+ ],
+ "charts": [
+  {
+   "name": "rps",
+   "file": "rps.svg"
+  },
+  {
+   "name": "error_pct",
+   "file": "error_pct.svg"
+  },
+  {
+   "name": "p95_ms",
+   "file": "p95_ms.svg"
+  },
+  {
+   "name": "replicas_up",
+   "file": "replicas_up.svg"
+  }
+ ]
+}

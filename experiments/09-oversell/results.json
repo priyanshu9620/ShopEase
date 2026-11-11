@@ -1,0 +1,69 @@
+{
+ "experiment": "09-oversell",
+ "title": "Concurrency control — 200 buyers, 1 unit in stock",
+ "generated": "2026-11-11T04:09:02.800Z",
+ "summary": {
+  "naive": {
+   "label": "read-then-write",
+   "runs": 1,
+   "env": {
+    "CACHE_ENABLED": "false",
+    "OVERSELL_MODE": "naive"
+   },
+   "replicas": 3,
+   "max_rps_within_sla": 0,
+   "k6:rounds.count": 20,
+   "k6:sold.count": 44,
+   "k6:sold_out.count": 3956,
+   "k6": {
+    "requests": 4021,
+    "failed_pct": 98.38348669485202,
+    "p95_ms": 1386.798126,
+    "p99_ms": null
+   }
+  },
+  "atomic": {
+   "label": "atomic conditional update",
+   "runs": 1,
+   "env": {
+    "CACHE_ENABLED": "false",
+    "OVERSELL_MODE": "atomic"
+   },
+   "replicas": 3,
+   "max_rps_within_sla": 0,
+   "k6:rounds.count": 20,
+   "k6:sold.count": 20,
+   "k6:sold_out.count": 3980,
+   "k6": {
+    "requests": 4021,
+    "failed_pct": 98.98035314598359,
+    "p95_ms": 1450.461668,
+    "p99_ms": null
+   }
+  }
+ },
+ "headline": [
+  {
+   "metric": "k6:rounds.count",
+   "label": "rounds (1 unit in stock each)"
+  },
+  {
+   "metric": "k6:sold.count",
+   "label": "units actually sold"
+  },
+  {
+   "metric": "k6:sold_out.count",
+   "label": "buyers told \"sold out\""
+  }
+ ],
+ "charts": [
+  {
+   "name": "buys_per_s",
+   "file": "buys_per_s.svg"
+  },
+  {
+   "name": "sold_per_s",
+   "file": "sold_per_s.svg"
+  }
+ ]
+}

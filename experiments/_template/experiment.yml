@@ -1,0 +1,42 @@
+# Copy this folder to experiments/<nn>-<name>/ and fill in. Keys are documented in experiments/README.md.
+id: nn-name
+title: Human title
+concept: >
+  Two or three sentences on the system-design idea.
+question: The one question this experiment answers?
+what_changes: FLAG=false → true (where in the code)
+
+arms:
+  baseline:
+    label: flag OFF
+    replicas: 3
+    env: { FLAG: "false" }
+  treatment:
+    label: flag ON
+    replicas: 3
+    env: { FLAG: "true" }
+    # hooks:
+    #   before: ["docker exec shopease-mongo-1 mongosh --quiet ecommerce --eval 'db.products.createIndex({slug:1})'"]
+    #   during: [{ at_s: 60, run: "docker stop -t 0 $(docker ps -q -f label=com.docker.compose.project=shopease -f label=com.docker.compose.service=app | head -1)", label: "replica killed" }]
+    #   after:  []
+
+load:
+  script: browse.js
+  rates: [100, 200, 400, 800]
+  step_s: 45
+  warmup_s: 15
+
+sla_ms: 300
+max_error_pct: 1
+
+metrics:
+  - { name: rps,       unit: req/s, query: 'sum(rate(http_request_duration_seconds_count{job="app",route!~"/healthz|/metrics|/static/.*|other"}[15s]))' }
+  - { name: p95_ms,    unit: ms, scale: 1000, query: 'histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="app",route!~"/healthz|/metrics|/static/.*|other"}[15s])))' }
+  - { name: error_pct, unit: '%', query: '100 * sum(rate(http_request_duration_seconds_count{job="app",status=~"5.."}[15s])) / sum(rate(http_request_duration_seconds_count{job="app"}[15s]))' }
+
+headline:
+  - { metric: max_rps_within_sla, label: max RPS with p95 < 300 ms }
+  - { metric: p95_ms@400,         label: p95 at 400 req/s }
+
+caveats:
+  - One laptop shares CPU between the load generator, nginx, the replicas and the databases.

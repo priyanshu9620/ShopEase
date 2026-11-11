@@ -17,16 +17,21 @@ import {
 } from "../controllers/productController.js";
 import { isAdmin, requireSignIn } from "../middlewares/authMiddleware.js";
 import formidable from "express-formidable";
+// lab: cache-aside (experiment 01). `cached` is a no-op unless CACHE_ENABLED=true; `invalidate`
+// bumps the namespace version after a successful write. Controllers are untouched.
+import { cached, invalidate } from "../lib/cache.js";
+import { afterOrder } from "../lib/postorder.js";
 
 const router = express.Router();
 
 //routes
-// formidable handles file uploads in express 
+// formidable handles file uploads in express
 router.post(
   "/create-product",
   requireSignIn,
   isAdmin,
   formidable(),
+  invalidate("products"),
   createProductController
 );
 //routes
@@ -35,44 +40,45 @@ router.put(
   requireSignIn,
   isAdmin,
   formidable(),
+  invalidate("products"),
   updateProductController
 );
 
 //get products
-router.get("/get-product", getProductController);
+router.get("/get-product", cached("products", 60), getProductController);
 
 //single product
-router.get("/get-product/:slug", getSingleProductController);
+router.get("/get-product/:slug", cached("products", 60), getSingleProductController);
 
-//get photo
-router.get("/product-photo/:pid", productPhotoController);
+//get photo  (heaviest read: ~54 KB body straight from Mongo; long TTL, photos rarely change)
+router.get("/product-photo/:pid", cached("products", 600), productPhotoController);
 
 //delete product
-router.delete("/delete-product/:pid", deleteProductController);
+router.delete("/delete-product/:pid", invalidate("products"), deleteProductController);
 
-//filter product
-router.post("/product-filters", productFiltersController);
+//filter product  (POST with a body → cache key includes the body, see lib/cache.js)
+router.post("/product-filters", cached("products", 60), productFiltersController);
 
 //product count
-router.get("/product-count", productCountController);
+router.get("/product-count", cached("products", 60), productCountController);
 
 //product per page
-router.get("/product-list/:page", productListController);
+router.get("/product-list/:page", cached("products", 60), productListController);
 
 //search product
-router.get("/search/:keyword", searchProductController);
+router.get("/search/:keyword", cached("products", 60), searchProductController);
 
 //similar product
-router.get("/related-product/:pid/:cid", realtedProductController);
+router.get("/related-product/:pid/:cid", cached("products", 60), realtedProductController);
 
 //category wise product
-router.get("/product-category/:slug", productCategoryController);
+router.get("/product-category/:slug", cached("products", 60), productCategoryController);
 
 //payments routes
 //token
 router.get("/braintree/token", braintreeTokenController);
 
-//payments
-router.post("/braintree/payment", requireSignIn, brainTreePaymentController);
+//payments  (lab: afterOrder() runs the post-checkout work inline or via the queue — experiment 07)
+router.post("/braintree/payment", requireSignIn, afterOrder(), brainTreePaymentController);
 
 export default router;

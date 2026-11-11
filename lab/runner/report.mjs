@@ -121,7 +121,9 @@ export function buildIndex(root) {
   const exDir = join(root, "experiments");
   const ids = readdirSync(exDir).filter((d) => existsSync(join(exDir, d, "experiment.yml")) && !d.startsWith("_")).sort();
   const cards = ids.map((id) => {
-    const m = YAML.parse(readFileSync(join(exDir, id, "experiment.yml"), "utf8"));
+    let m;
+    try { m = YAML.parse(readFileSync(join(exDir, id, "experiment.yml"), "utf8")); }
+    catch (e) { console.error(`index: skipping ${id} (bad experiment.yml: ${e.message.split("\n")[0]})`); return ""; }
     const rf = join(exDir, id, "results.json");
     const r = existsSync(rf) ? JSON.parse(readFileSync(rf, "utf8")) : null;
     const arms = r ? Object.keys(r.summary) : [];

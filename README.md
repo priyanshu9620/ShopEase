@@ -17,6 +17,9 @@ one command, watched live in Grafana, and written up with measured numbers.
 | **02 scale-out** — max RPS with p95 < 300 ms, 1 → 3 replicas | 313 req/s | 827 req/s | +164 % |
 | 02 scale-out — p95 at 400 req/s, 1 → 3 replicas | 62 ms | 23 ms | −63 % |
 | **03 fault tolerance** — requests failed when one instance is stopped under 300 req/s, 1 vs 3 replicas | 56.2 % | 0 % | −100 % |
+| **05 DB indexing** — product-by-slug p95 at 100 req/s, 50k products | 24.3 ms | 4.5 ms | −81 % |
+| 05 DB indexing — Mongo documents scanned per second | 2.4 M | 190 | −100 % |
+| **06 rate limiting** — abuser's requests rejected / normal users' p95 | 0 % / 3.5 ms | 80 % / 3.8 ms | DB load −42 % |
 
 Measured on one laptop (3 app replicas × 1 CPU behind nginx, Mongo + Redis local, k6 open-model ramp
 100 → 1,600 req/s, 45 s per stage). Full write-ups with charts: [experiments/](experiments/README.md).

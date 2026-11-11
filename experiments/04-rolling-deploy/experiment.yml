@@ -46,6 +46,6 @@ headline:
   - { metric: replicas_v2:max, label: replicas on v2 at the end }
 
 caveats:
-  - "v2" is the same image with a different APP_VERSION; a real deploy also pulls a new image, which only lengthens the naive outage.
+  - v2 is the same image with a different APP_VERSION; a real deploy also pulls a new image, which only lengthens the naive outage.
   - nginx discovers replicas by DNS every 5 s, so the rolling script waits 6 s after each add/remove; an ALB does this with health checks and deregistration delay (Phase 3 measures that path).
   - Rolling takes ~3× longer than naive by design; the trade is deploy time for zero user-visible errors.

@@ -1,0 +1,88 @@
+{
+ "experiment": "06-rate-limit",
+ "title": "Rate limiting — one abusive client vs everyone else",
+ "generated": "2026-11-11T04:06:31.385Z",
+ "summary": {
+  "baseline": {
+   "label": "no limiter",
+   "runs": 1,
+   "env": {
+    "CACHE_ENABLED": "false",
+    "RATE_LIMIT_ENABLED": "false"
+   },
+   "replicas": 3,
+   "max_rps_within_sla": 604,
+   "k6:normal_rt.p(95)": 3.469,
+   "k6:normal_429.rate": 0,
+   "k6:abuser_429.rate": 0,
+   "mongo_ops:max": 784.1,
+   "k6": {
+    "requests": 67511,
+    "failed_pct": 0,
+    "p95_ms": 3.4928335,
+    "p99_ms": 4.0194538
+   }
+  },
+  "treatment": {
+   "label": "50 req/s per client",
+   "runs": 1,
+   "env": {
+    "CACHE_ENABLED": "false",
+    "RATE_LIMIT_ENABLED": "true",
+    "RATE_LIMIT_RPS": "50"
+   },
+   "replicas": 3,
+   "max_rps_within_sla": 354,
+   "k6:normal_rt.p(95)": 3.783,
+   "k6:normal_429.rate": 0,
+   "k6:abuser_429.rate": 0.831,
+   "mongo_ops:max": 458,
+   "k6": {
+    "requests": 67510,
+    "failed_pct": 33.25581395348837,
+    "p95_ms": 3.6639622,
+    "p99_ms": 4.877932689999997
+   }
+  }
+ },
+ "headline": [
+  {
+   "metric": "k6:normal_rt.p(95)",
+   "label": "normal users' p95 (ms)"
+  },
+  {
+   "metric": "k6:normal_429.rate",
+   "label": "normal users' requests rejected (fraction)"
+  },
+  {
+   "metric": "k6:abuser_429.rate",
+   "label": "abuser's requests rejected (fraction)"
+  },
+  {
+   "metric": "mongo_ops:max",
+   "label": "peak Mongo ops/s"
+  }
+ ],
+ "charts": [
+  {
+   "name": "rps",
+   "file": "rps.svg"
+  },
+  {
+   "name": "rps_429",
+   "file": "rps_429.svg"
+  },
+  {
+   "name": "p95_ms",
+   "file": "p95_ms.svg"
+  },
+  {
+   "name": "mongo_ops",
+   "file": "mongo_ops.svg"
+  },
+  {
+   "name": "app_cpu_pct",
+   "file": "app_cpu_pct.svg"
+  }
+ ]
+}

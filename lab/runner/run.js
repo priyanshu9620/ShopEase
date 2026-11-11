@@ -78,6 +78,8 @@ async function runArm(armName, arm, n) {
   log(`stack up: ${arm.replicas || 3} replica(s)`);
   // one-off app containers left by a rolling deploy (lab/hooks/deploy.sh) are not managed by `up`
   try { sh(`docker rm -f $(docker ps -aq -f label=com.docker.compose.project=shopease -f label=com.docker.compose.service=app -f label=com.docker.compose.oneoff=True) 2>/dev/null || true`); } catch { /* none */ }
+  // flush Redis before workers/replicas start so leftover queue jobs or cache entries from the previous arm are gone
+  try { sh(`docker exec shopease-redis-1 redis-cli flushall`); } catch { /* redis not up yet */ }
   sh(`${COMPOSE} up -d --scale app=${arm.replicas || 3} --scale worker=${arm.workers || 0} --remove-orphans`, { ...env, WORKERS: String(arm.workers || 0) });
   await waitHealthy(arm.replicas || 3);
   for (const h of arm.hooks?.before || []) { log(`hook: ${h}`); await shLive(h, env); }

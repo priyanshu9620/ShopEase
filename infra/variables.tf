@@ -34,6 +34,12 @@ variable "image_tag" {
   default     = "latest"
 }
 
+variable "loadgen" {
+  description = "Create the t3.small k6 load-generator instance (benchmark sessions only)."
+  type        = bool
+  default     = true
+}
+
 variable "cache_enabled" {
   description = "Redis cache-aside on the deployed app (\"true\" / \"false\"). Toggle + `deploy.sh` to re-read."
   type        = string

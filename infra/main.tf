@@ -119,10 +119,11 @@ locals {
 }
 
 resource "aws_ssm_parameter" "app" {
-  for_each = local.params
-  name     = "/shopease/${each.key}"
-  type     = "SecureString"
-  value    = each.value
+  for_each  = local.params
+  name      = "/shopease/${each.key}"
+  type      = "SecureString"
+  value     = each.value
+  overwrite = true # a parameter may have been set by hand (e.g. CACHE_ENABLED during a benchmark); take it over
 }
 
 # ---------------------------------------------------------------------------------------------
@@ -174,6 +175,21 @@ resource "aws_instance" "data" {
     volume_size = 20
   }
   tags = { Name = "shopease-data", Role = "data" }
+}
+
+# ---------------------------------------------------------------------------------------------
+# Load generator (optional, var.loadgen): runs k6 in the same region so benchmarks measure the
+# servers, not the laptop's internet path. Never on the data instance — k6 starves Mongo/Redis (P-25).
+# ---------------------------------------------------------------------------------------------
+resource "aws_instance" "loadgen" {
+  count                  = var.loadgen ? 1 : 0
+  ami                    = data.aws_ssm_parameter.al2023.value
+  instance_type          = "t3.small"
+  subnet_id              = sort(data.aws_subnets.default.ids)[1]
+  vpc_security_group_ids = [aws_security_group.app.id] # outbound only is what it needs
+  iam_instance_profile   = aws_iam_instance_profile.instance.name
+  user_data              = "#!/bin/bash\ndnf install -y docker && systemctl enable --now docker && docker pull grafana/k6:0.55.0\n"
+  tags                   = { Name = "shopease-loadgen", Role = "loadgen" }
 }
 
 # ---------------------------------------------------------------------------------------------

@@ -155,6 +155,7 @@ resource "aws_iam_user_policy" "github_deploy_cdn" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
+      { Effect = "Allow", Action = ["s3:ListAllMyBuckets", "cloudfront:ListDistributions"], Resource = "*" }, # discovery in deploy.yml
       { Effect = "Allow", Action = ["s3:ListBucket"], Resource = aws_s3_bucket.assets.arn },
       { Effect = "Allow", Action = ["s3:PutObject", "s3:DeleteObject"], Resource = "${aws_s3_bucket.assets.arn}/*" },
       { Effect = "Allow", Action = ["cloudfront:CreateInvalidation"], Resource = aws_cloudfront_distribution.cdn.arn },

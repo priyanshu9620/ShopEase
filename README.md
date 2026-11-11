@@ -5,7 +5,7 @@ A MERN e-commerce app (RBAC, product search, catalog filtering, Braintree paymen
 indexing, rate limiting, async queues, circuit breakers, concurrency control, CDN + real-time) each run by
 one command, watched live in Grafana, and written up with measured numbers.
 
-> Status: work in progress — Phases 0–2b done (app, CI, lab, experiments 01–09 measured). Next: AWS (Terraform, 3 × EC2 behind an ALB), then CDN + WebSockets (experiment 10). Manual: [docs/GUIDE.md](docs/GUIDE.md).
+> All twelve experiments are measured. Deployed shape: 3 × EC2 behind an ALB, S3 + CloudFront, WebSockets, CI/CD with rolling deploys, everything as OpenTofu in `infra/` (built and destroyed per session). Manual: [docs/GUIDE.md](docs/GUIDE.md) · interview notes: [INTERVIEW_PREP/](INTERVIEW_PREP/) · results site: https://priyanshu9620.github.io/ShopEase/
 
 ## Lab results so far
 
@@ -28,6 +28,7 @@ one command, watched live in Grafana, and written up with measured numbers.
 | 08 circuit breaker — requests stuck in flight at the peak | 104 | 10 | −90 % |
 | **10 AWS** — 3 × t3.micro behind an ALB, max sustained req/s with p95 < 300 ms, cache off vs on | 100 req/s | 800 req/s | 8× |
 | 10 AWS — p95 when offered 800 req/s | 28.5 s | 25 ms | |
+| **11 CDN** — product photo p50 / p95 from a laptop in India, served by the app in Sydney vs CloudFront edge | 289 / 556 ms | 18 / 47 ms | −94 % / −92 % |
 | **12 real-time** — order-status updates delivered to 500 sockets on 3 replicas, without vs with the Redis adapter | 829 / 2,500 | 2,500 / 2,500 | 100 % |
 
 The AWS rows were measured by k6 running on an EC2 instance in the same region (`lab/aws/bench.sh`); the

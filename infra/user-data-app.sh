@@ -32,8 +32,11 @@ docker pull "$ECR:$TAG"
 # (CI does one instance at a time) is what keeps user errors at zero.
 docker stop -t 15 shopease 2>/dev/null || true
 docker rm shopease 2>/dev/null || true
+# instance id as the replica label (IMDSv2: token first, AL2023 requires it)
+TOKEN=$(curl -s -X PUT http://169.254.169.254/latest/api/token -H "X-aws-ec2-metadata-token-ttl-seconds: 60")
+INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id || hostname)
 docker run -d --name shopease --restart unless-stopped -p 8080:8080 --env-file .env \
-  -e HOSTNAME="$(curl -s http://169.254.169.254/latest/meta-data/instance-id || hostname)" \
+  -e HOSTNAME="$${INSTANCE_ID:-$(hostname)}" \
   --log-driver json-file --log-opt max-size=20m --log-opt max-file=3 \
   "$ECR:$TAG"
 docker image prune -f >/dev/null

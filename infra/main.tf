@@ -114,6 +114,7 @@ locals {
     BRAINTREE_PRIVATE_KEY = var.braintree_private_key
     MONGO_URL             = local.mongo_url
     REDIS_URL             = local.redis_url
+    CACHE_ENABLED         = var.cache_enabled # not a secret, but the instances read all /shopease/* params as their env
   }
 }
 

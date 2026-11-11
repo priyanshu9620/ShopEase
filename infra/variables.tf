@@ -34,6 +34,12 @@ variable "image_tag" {
   default     = "latest"
 }
 
+variable "cache_enabled" {
+  description = "Redis cache-aside on the deployed app (\"true\" / \"false\"). Toggle + `deploy.sh` to re-read."
+  type        = string
+  default     = "true"
+}
+
 variable "github_repo" {
   description = "GitHub repo allowed to assume the deploy role via OIDC (owner/name)."
   type        = string

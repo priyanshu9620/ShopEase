@@ -241,40 +241,27 @@ resource "aws_lb_listener" "http" {
 }
 
 # ---------------------------------------------------------------------------------------------
-# GitHub Actions → AWS without long-lived keys: an OIDC identity provider + a role that only the
-# master branch of this repo can assume. It may push to ECR and run the deploy command via SSM.
+# GitHub Actions → AWS. The preferred way is an OIDC identity provider (no long-lived keys), but the
+# free-plan project's service control policy denies iam:CreateOpenIDConnectProvider (P-22). Fallback:
+# a dedicated IAM user with the minimum deploy policy; its key goes into GitHub Actions secrets.
 # ---------------------------------------------------------------------------------------------
-resource "aws_iam_openid_connect_provider" "github" {
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
-  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"] # GitHub's root CA; AWS validates against its own trust store anyway
+resource "aws_iam_user" "github_deploy" {
+  name = "shopease-github-deploy"
 }
 
-resource "aws_iam_role" "github_deploy" {
-  name = "shopease-github-deploy"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Principal = { Federated = aws_iam_openid_connect_provider.github.arn }
-      Action    = "sts:AssumeRoleWithWebIdentity"
-      Condition = {
-        StringEquals = { "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com" }
-        StringLike   = { "token.actions.githubusercontent.com:sub" = "repo:${var.github_repo}:ref:refs/heads/master" }
-      }
-    }]
-  })
+resource "aws_iam_access_key" "github_deploy" {
+  user = aws_iam_user.github_deploy.name
 }
 
-resource "aws_iam_role_policy" "github_deploy" {
+resource "aws_iam_user_policy" "github_deploy" {
   name = "shopease-github-deploy"
-  role = aws_iam_role.github_deploy.id
+  user = aws_iam_user.github_deploy.name
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       { Effect = "Allow", Action = ["ecr:GetAuthorizationToken"], Resource = "*" },
       { Effect = "Allow", Action = ["ecr:*"], Resource = aws_ecr_repository.app.arn },
-      { Effect = "Allow", Action = ["ec2:DescribeInstances", "elasticloadbalancing:DescribeTargetHealth"], Resource = "*" },
+      { Effect = "Allow", Action = ["ec2:DescribeInstances", "elasticloadbalancing:DescribeTargetHealth", "elasticloadbalancing:DescribeTargetGroups"], Resource = "*" },
       { Effect = "Allow", Action = ["ssm:SendCommand"], Resource = ["arn:aws:ssm:${var.region}::document/AWS-RunShellScript", "arn:aws:ec2:${var.region}:${data.aws_caller_identity.me.account_id}:instance/*"] },
       { Effect = "Allow", Action = ["ssm:GetCommandInvocation", "ssm:ListCommandInvocations"], Resource = "*" },
     ]

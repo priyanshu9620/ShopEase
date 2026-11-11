@@ -1,7 +1,7 @@
 # CD: on every push to master, build the image, push it to ECR with the commit SHA as the tag, then
 # roll it out to the EC2 instances one at a time through SSM Run Command, waiting for the ALB to
-# report the instance healthy before touching the next one. No AWS keys in GitHub: the job assumes
-# the OIDC role created by infra/ (set repo variable AWS_DEPLOY_ROLE_ARN to its ARN).
+# report the instance healthy before touching the next one. Auth: the scoped IAM user created by infra/
+# (secrets AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY) — OIDC is denied on the free-plan project (P-22).
 name: deploy
 
 on:
@@ -10,7 +10,6 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write
   contents: read
 
 concurrency:
@@ -22,14 +21,15 @@ env:
 
 jobs:
   deploy:
-    if: vars.AWS_DEPLOY_ROLE_ARN != ''
+    if: vars.AWS_DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4.2.2
 
       - uses: aws-actions/configure-aws-credentials@v4.0.2
         with:
-          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - id: ecr

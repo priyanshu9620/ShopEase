@@ -19,7 +19,7 @@ console: every block here is one thing you would click together by hand.
               ┌─────▼─────┐
               │   data    │  t3.small: Mongo 7 + Redis 7 in Docker (until Atlas)
               └───────────┘
-   ECR "shopease"  ◄── GitHub Actions (OIDC role, no keys) pushes :<sha> and :latest, then
+   ECR "shopease"  ◄── GitHub Actions (scoped IAM user) pushes :<sha> and :latest, then
                        SSM Run Command rolls `/opt/shopease/deploy.sh <sha>` one instance at a time
 ```
 
@@ -33,7 +33,7 @@ console: every block here is one thing you would click together by hand.
 | `aws_instance.data` | Mongo + Redis | D-22 fallback until MongoDB Atlas; set `mongo_url` to switch |
 | `aws_instance.app[3]` | the three replicas, one per AZ | `user-data-app.sh` installs Docker, writes `deploy.sh`, starts the container |
 | `aws_lb.app`, `aws_lb_target_group.app`, `aws_lb_listener.http` | the load balancer | health-checks `/healthz`, 15 s deregistration delay matches the app's SIGTERM drain |
-| `aws_iam_openid_connect_provider.github`, `aws_iam_role.github_deploy` | CI/CD identity | GitHub's `master` branch assumes the role via OIDC; allowed: ECR push, SSM SendCommand, target-health reads |
+| `aws_iam_user.github_deploy` + access key + policy | CI/CD identity | OIDC (keyless) is the better pattern but the free-plan policy denies creating an OIDC provider, so a scoped IAM user's key goes into GitHub secrets; allowed: ECR push, SSM SendCommand, target-health reads |
 
 ## Commands
 
@@ -46,9 +46,11 @@ curl http://<alb_dns>/healthz    # once per replica id — three different "repl
 make infra-destroy         # after each session; the free-plan credits are finite
 ```
 
-After the first apply: copy `github_deploy_role_arn` from the output into the GitHub repo →
-Settings → Secrets and variables → Actions → **Variables** → `AWS_DEPLOY_ROLE_ARN`. From then on
-every push to `master` runs `.github/workflows/deploy.yml` (build → ECR → rolling SSM deploy).
+After the first apply: put `github_deploy_access_key_id` / `github_deploy_secret_access_key` (from
+`tofu output`) into the GitHub repo → Settings → Secrets and variables → Actions as secrets
+`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`, and set the variable `AWS_DEPLOY_ENABLED=true`. From then
+on every push to `master` runs `.github/workflows/deploy.yml` (build → ECR → rolling SSM deploy).
+`ECR ... (SSM Run Command ...)` in the diagram: GitHub Actions authenticates as that user.
 
 Bootstrapping note: the instances pull `:latest` at boot, so the ECR repo must contain an image before
 the first boot. The first apply creates the repo; push the image (`make ecr-push` or let the deploy

@@ -1,0 +1,108 @@
+{
+ "experiment": "12-realtime",
+ "title": "Real-time push — one update, hundreds of sockets, several replicas",
+ "generated": "2026-11-11T12:37:18.801Z",
+ "summary": {
+  "one": {
+   "label": "1 replica",
+   "runs": 1,
+   "env": {
+    "CACHE_ENABLED": "false",
+    "PAYMENT_MOCK": "true"
+   },
+   "replicas": 1,
+   "max_rps_within_sla": 0,
+   "k6:sockets.count": 500,
+   "k6:replicas_used.count": 1,
+   "k6:received.count": 2500,
+   "k6:lost.count": 0,
+   "k6:delivery_ms.p(95)": 32,
+   "k6": {
+    "requests": 5,
+    "failed_pct": 0,
+    "p95_ms": 0,
+    "p99_ms": 0
+   }
+  },
+  "three_noadapter": {
+   "label": "3 replicas, no Redis adapter",
+   "runs": 1,
+   "env": {
+    "CACHE_ENABLED": "false",
+    "PAYMENT_MOCK": "true",
+    "REALTIME_ADAPTER": "false"
+   },
+   "replicas": 3,
+   "max_rps_within_sla": 0,
+   "k6:sockets.count": 500,
+   "k6:replicas_used.count": 3,
+   "k6:received.count": 829,
+   "k6:lost.count": 1671,
+   "k6:delivery_ms.p(95)": 22,
+   "k6": {
+    "requests": 5,
+    "failed_pct": 0,
+    "p95_ms": 0,
+    "p99_ms": 0
+   }
+  },
+  "three": {
+   "label": "3 replicas + Redis adapter",
+   "runs": 1,
+   "env": {
+    "CACHE_ENABLED": "false",
+    "PAYMENT_MOCK": "true",
+    "REALTIME_ADAPTER": "true"
+   },
+   "replicas": 3,
+   "max_rps_within_sla": 0,
+   "k6:sockets.count": 500,
+   "k6:replicas_used.count": 3,
+   "k6:received.count": 2500,
+   "k6:lost.count": 0,
+   "k6:delivery_ms.p(95)": 43,
+   "k6": {
+    "requests": 5,
+    "failed_pct": 0,
+    "p95_ms": 0,
+    "p99_ms": 0
+   }
+  }
+ },
+ "headline": [
+  {
+   "metric": "k6:sockets.count",
+   "label": "sockets connected"
+  },
+  {
+   "metric": "k6:replicas_used.count",
+   "label": "replicas the sockets landed on"
+  },
+  {
+   "metric": "k6:received.count",
+   "label": "updates delivered (5 rounds)"
+  },
+  {
+   "metric": "k6:lost.count",
+   "label": "updates lost"
+  },
+  {
+   "metric": "k6:delivery_ms.p(95)",
+   "label": "delivery p95 (ms, API call → socket)"
+  }
+ ],
+ "charts": [
+  {
+   "name": "socket_connections",
+   "file": "socket_connections.svg"
+  },
+  {
+   "name": "sockets_per_replica_max",
+   "file": "sockets_per_replica_max.svg"
+  },
+  {
+   "name": "events_per_s",
+   "file": "events_per_s.svg"
+  }
+ ]
+}

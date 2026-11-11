@@ -67,10 +67,49 @@ Manifest format and how to add a concept: `experiments/README.md`.
   (repo Settings → Pages → Source: GitHub Actions, once).
 - Raw: `experiments/<id>/results/*.json` (git-ignored) — the Prometheus series and k6 summaries per run.
 
-## 6. CI
+## 6. CI/CD
 
-`.github/workflows/ci.yml`: on every push/PR builds the image, smoke-tests `/healthz` against a real Mongo,
-and pushes `ghcr.io/priyanshu9620/shopease:<branch>-<sha>` (+ `:latest` on master).
+- `.github/workflows/ci.yml`: on every push/PR builds the image, smoke-tests `/healthz` against a real Mongo,
+  and pushes `ghcr.io/priyanshu9620/shopease:<branch>-<sha>` (+ `:latest` on master).
+- `.github/workflows/deploy.yml` (master only, needs the AWS stack up): builds `linux/amd64`, pushes to ECR
+  `:<sha>` + `:latest`, publishes the React build to S3 + invalidates CloudFront, then rolls the EC2
+  instances one at a time: deregister from the ALB → drain → `deploy.sh <sha>` via SSM → register → wait
+  healthy. Measured: 247/247 outside probes OK during a roll.
+- Secrets in GitHub: `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` (the scoped deploy user from `infra/`),
+  variable `AWS_DEPLOY_ENABLED=true`.
+
+## 6b. AWS (Phase 3/4) — `infra/`
+
+Everything is OpenTofu in `infra/` (see `infra/README.md` for the diagram and the what/why of each resource).
+Region `ap-southeast-2` (the account is region-locked); profile `shopease` in `~/.aws/credentials`.
+
+```bash
+cp infra/terraform.tfvars.example infra/terraform.tfvars   # secrets → SSM Parameter Store
+make infra-plan && make infra-apply      # ~5 min (CloudFront is the slow part); prints alb_dns, cdn_url
+# push to master (or re-run the deploy workflow) → image + client published, instances rolled
+make aws-migrate-photos                  # existing photos → S3 (photoUrl set); /product-photo 302s to the CDN
+make aws-bench ARM=cached ; make aws-bench ARM=uncached ; make aws-report   # experiment 10 (k6 on the loadgen)
+make cdn-bench ; make k6-report E=11-cdn # experiment 11 (k6 on this laptop: ALB vs CloudFront)
+make infra-destroy                       # ALWAYS at the end of a session (~$0.12/h while up)
+```
+
+Cost while up ≈ $2.6–3/day (3 × t3.micro, t3.small data, t3.small loadgen, ALB, CloudFront pennies),
+covered by the free-plan credits. Nothing is left running between sessions.
+
+Operational notes learned the hard way (details in the notes' PROBLEMS log): run load generators on
+their own instance, never on the data box; burstable instances need `cpu_credits = "unlimited"` for
+benchmarks; cap Mongo/Redis memory on a 2 GB box; keep the app's Mongo pool small (20); `deploy.sh`
+re-reads SSM params, so toggling `/shopease/CACHE_ENABLED` or `/shopease/PHOTO_STORAGE` + redeploy
+switches behaviour without a new image.
+
+## 6c. Real-time and CDN (Phase 4)
+
+- **Order tracking**: the Orders page opens a WebSocket (`socket.io`, JWT in the handshake). When an admin
+  changes an order's status the row updates live. The Redis adapter relays the event between replicas;
+  experiment 12 shows 3 replicas without it lose ~2/3 of updates.
+- **Photos**: with `PHOTO_STORAGE=s3` new/updated photos go to S3 and `GET /product-photo/:pid` redirects
+  to CloudFront; the React client is unchanged. `scripts/migrate-photos-to-s3.js` moves old ones.
+- **React build**: served by CloudFront from S3; `/api/*` and `/socket.io/*` go to the ALB origin.
 
 ## 7. Troubleshooting
 
@@ -86,4 +125,4 @@ and pushes `ghcr.io/priyanshu9620/shopease:<branch>-<sha>` (+ `:latest` on maste
 
 ## 8. Phases
 
-0 baseline ✓ · 1 CI/GHCR ✓ · 2 lab + 01 caching (in progress) · 2b experiments 02–09 · 3 AWS (Terraform) · 4 CDN + WebSockets + 10 · 5 docs + INTERVIEW_PREP.
+0 baseline ✓ · 1 CI/GHCR ✓ · 2 lab + 01 caching ✓ · 2b experiments 02–09 ✓ · 3 AWS (OpenTofu, exp 10) ✓ · 4 CDN + WebSockets (exp 11, 12) · 5 docs + INTERVIEW_PREP.

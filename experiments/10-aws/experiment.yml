@@ -17,7 +17,7 @@ arms:
 
 load:
   script: browse.js
-  rates: [100, 200, 400, 800, 1200, 1600]
+  rates: [100, 200, 400, 800, 1000, 1200]
   seconds_per_rate: 40
 
 sla_ms: 300
@@ -27,9 +27,11 @@ headline:
   - { metric: max_rps_within_sla, label: max sustained req/s with p95 < 300 ms }
   - { metric: "p95_ms@400",       label: p95 at 400 req/s (ms) }
   - { metric: "p95_ms@800",       label: p95 at 800 req/s (ms) }
-  - { metric: "failed_pct@1600",  label: failures at 1,600 req/s (%) }
+  - { metric: "achieved@1200",    label: "achieved req/s when offered 1,200" }
+  - { metric: "failed_pct@1200",  label: "failures when offered 1,200 req/s (%)" }
 
 caveats:
-  - t3.micro instances are burstable (2 vCPU, CPU credits); a long run drains credits and the numbers fall. Each rate ran 40 s.
-  - Mongo and Redis share one t3.small; with the cache off the database instance is the ceiling, which is the point of the cache arm.
+  - t3.micro instances are burstable; the first attempt ran out of CPU credits at 1,200 req/s (P-30). Instances now run with unlimited credits; each rate ran 40 s.
+  - Mongo and Redis share one t3.small (2 GB) with a 0.5 GB WiredTiger cache for a 310 MB dataset; with the cache off that single box is the ceiling (it was OOM-killed until the app's connection pool was cut from 100 to 20 per instance, P-31). A managed replica set (Atlas) or a bigger data instance is the next lever.
+  - List/product cache entries expire after 60 s, so at ~1,000 req/s the expiry moment sends a burst of misses to Mongo (the cache-stampede experiment in the backlog); it shows as the p99 spikes in the cached arm.
   - Single region, HTTP only, no autoscaling, no CDN yet (Phase 4); the ALB alone adds ~1 ms.

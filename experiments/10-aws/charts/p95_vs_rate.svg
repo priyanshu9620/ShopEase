@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="300" font-family="system-ui,sans-serif" font-size="12"><rect width="720" height="300" fill="#fff"/>
+<text x="56" y="20" font-size="14" font-weight="600">p95 latency (ms) vs offered rate (req/s) — ALB, 3 × t3.micro, k6 in-region</text>
+<line x1="56" x2="704" y1="223" y2="223" stroke="#e74c3c" stroke-dasharray="4 3"/><text x="704" y="219" text-anchor="end" fill="#e74c3c">SLA 300 ms</text>
+<text x="56" y="272" text-anchor="middle" fill="#666">100</text><text x="185.6" y="272" text-anchor="middle" fill="#666">200</text><text x="315.2" y="272" text-anchor="middle" fill="#666">400</text><text x="444.8" y="272" text-anchor="middle" fill="#666">800</text><text x="574.4" y="272" text-anchor="middle" fill="#666">1000</text><text x="704" y="272" text-anchor="middle" fill="#666">1200</text>
+<text x="50" y="260" text-anchor="end" fill="#666">0</text><text x="50" y="205" text-anchor="end" fill="#666">500</text><text x="50" y="150" text-anchor="end" fill="#666">1000</text><text x="50" y="95" text-anchor="end" fill="#666">1500</text><text x="50" y="40" text-anchor="end" fill="#666">2000</text>
+<line x1="56" x2="704" y1="256" y2="256" stroke="#999"/>
+<polyline fill="none" stroke="#8a8f98" stroke-width="2" points="56,223.857231375 185.6,36 315.2,36 444.8,36 574.4,36 704,36"/><polyline fill="none" stroke="#2f80ed" stroke-width="2" points="56,253.095681451 185.6,254.137248395 315.2,253.76204313050002 444.8,253.27671438000002 574.4,36 704,249.574748904"/>
+<rect x="56" y="284" width="12" height="3" fill="#8a8f98"/><text x="72" y="289">cache OFF</text><rect x="216" y="284" width="12" height="3" fill="#2f80ed"/><text x="232" y="289">cache ON</text>
+</svg>

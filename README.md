@@ -26,6 +26,11 @@ one command, watched live in Grafana, and written up with measured numbers.
 | 07 async queue — peak queue depth at 8 checkouts/s, 1 vs 3 workers | 126 jobs | 0 jobs | drained |
 | **08 circuit breaker** — checkout p95 while the payment provider hangs | 10,313 ms | 2,004 ms | −81 % |
 | 08 circuit breaker — requests stuck in flight at the peak | 104 | 10 | −90 % |
+| **10 AWS** — 3 × t3.micro behind an ALB, max sustained req/s with p95 < 300 ms, cache off vs on | 100 req/s | 800 req/s | 8× |
+| 10 AWS — p95 when offered 800 req/s | 28.5 s | 25 ms | |
+
+The AWS rows were measured by k6 running on an EC2 instance in the same region (`lab/aws/bench.sh`); the
+others on one laptop. Deployed stack: `infra/` (OpenTofu), rolled out by `.github/workflows/deploy.yml`.
 
 Measured on one laptop (3 app replicas × 1 CPU behind nginx, Mongo + Redis local, k6 open-model ramp
 100 → 1,600 req/s, 45 s per stage). Full write-ups with charts: [experiments/](experiments/README.md).

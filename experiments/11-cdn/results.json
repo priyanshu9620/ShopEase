@@ -1,0 +1,45 @@
+{
+ "experiment": "11-cdn",
+ "title": "CDN — product photos from CloudFront edges vs from the app in Sydney",
+ "generated": "2026-11-11T13:23:02.372Z",
+ "summary": {
+  "alb": {
+   "label": "photos via app + ALB (Sydney)",
+   "k6:photo_rt.med": 288.59858399999996,
+   "k6:photo_rt.p(95)": 555.8957107,
+   "k6:photo_ttfb.med": 284.998417,
+   "k6:failed_pct": 0
+  },
+  "cdn": {
+   "label": "photos via CloudFront edge",
+   "k6:photo_rt.med": 17.882146499999998,
+   "k6:photo_rt.p(95)": 46.754470649999995,
+   "k6:photo_ttfb.med": 15.6164375,
+   "k6:failed_pct": 0
+  }
+ },
+ "headline": [
+  {
+   "metric": "k6:photo_rt.med",
+   "label": "photo p50 (ms)"
+  },
+  {
+   "metric": "k6:photo_rt.p(95)",
+   "label": "photo p95 (ms)"
+  },
+  {
+   "metric": "k6:photo_ttfb.med",
+   "label": "time to first byte p50 (ms)"
+  },
+  {
+   "metric": "k6:failed_pct",
+   "label": "failed (%)"
+  }
+ ],
+ "charts": [
+  {
+   "name": "headline",
+   "file": "headline.svg"
+  }
+ ]
+}

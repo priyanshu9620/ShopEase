@@ -13,7 +13,7 @@ Do not copy this pattern for anything shared or work-related.
 | `notes/` | the project notes: `session/HANDOFF.md` (read first), DECISIONS, BUILD-PLAN, PROGRESS, PROBLEMS, resume lines, the reusable handoff prompt | `~/Desktop/shopease-notes/` (or read in place) |
 | `claude-memory/shopease-project.md` | Claude Code's memory file for this project | the Claude memory folder of the project you open (see below) |
 | `dotfiles/tofurc` | OpenTofu provider mirror config (only needed on networks where GitHub release downloads hang) | `~/.tofurc` |
-| `aws-credentials.enc` | `~/.aws/credentials` for profile `shopease`, AES-256 encrypted (the one thing not in plain text: a public repo + an AWS key = instant abuse) | `~/.aws/credentials` after decrypting |
+| *(not in the repo)* | the AWS access key for profile `shopease` — the one secret deliberately kept out (a public repo + an AWS key = instant abuse). Get it from the AWS console: IAM → Users → `terraform-shopease` → Security credentials → Create access key | `~/.aws/credentials` |
 
 ## New laptop, step by step
 
@@ -22,7 +22,7 @@ git clone https://github.com/priyanshu9620/ShopEase.git ~/Desktop/ShopEase && cd
 brew install awscli opentofu            # Docker Desktop separately; gh (GitHub CLI) and `gh auth login` as priyanshu9620
 cp -R handoff/notes ~/Desktop/shopease-notes
 cp handoff/dotfiles/tofurc ~/.tofurc    # then see notes/session/PROBLEMS.md P-20 for the provider mirror files
-mkdir -p ~/.aws && openssl enc -d -aes-256-cbc -pbkdf2 -in handoff/aws-credentials.enc -out ~/.aws/credentials && chmod 600 ~/.aws/credentials
+mkdir -p ~/.aws && printf '[shopease]\naws_access_key_id = AKIA...\naws_secret_access_key = ...\n' >> ~/.aws/credentials && chmod 600 ~/.aws/credentials   # key from IAM, see table
 printf '[profile shopease]\nregion = ap-southeast-2\noutput = json\n' >> ~/.aws/config
 make up && make seed                    # app on :8080;  make lab → Grafana :3000;  make experiment E=01-caching
 ```

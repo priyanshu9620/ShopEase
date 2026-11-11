@@ -5,7 +5,7 @@ A MERN e-commerce app (RBAC, product search, catalog filtering, Braintree paymen
 indexing, rate limiting, async queues, circuit breakers, concurrency control, CDN + real-time) each run by
 one command, watched live in Grafana, and written up with measured numbers.
 
-> Status: work in progress — Phases 0–2 done (app, CI, lab, experiment 01). Manual: [docs/GUIDE.md](docs/GUIDE.md).
+> Status: work in progress — Phases 0–2b done (app, CI, lab, experiments 01–09 measured). Next: AWS (Terraform, 3 × EC2 behind an ALB), then CDN + WebSockets (experiment 10). Manual: [docs/GUIDE.md](docs/GUIDE.md).
 
 ## Lab results so far
 
@@ -22,6 +22,10 @@ one command, watched live in Grafana, and written up with measured numbers.
 | **06 rate limiting** — abuser's requests rejected / normal users' p95 | 0 % / 3.5 ms | 80 % / 3.8 ms | DB load −42 % |
 | **04 rolling deploy** — requests failed during a v1 → v2 deploy at 200 req/s | 0.3 % | 0 % | −100 % |
 | **09 concurrency control** — units sold over 20 rounds of 1-unit stock, 200 simultaneous buyers | 44 (oversold ×24) | 20 (exact) | −55 % |
+| **07 async queue** — checkout p95 with 300 ms post-order work, inline vs queued | 488 ms | 183 ms | −62 % |
+| 07 async queue — peak queue depth at 8 checkouts/s, 1 vs 3 workers | 126 jobs | 0 jobs | drained |
+| **08 circuit breaker** — checkout p95 while the payment provider hangs | 10,313 ms | 2,004 ms | −81 % |
+| 08 circuit breaker — requests stuck in flight at the peak | 104 | 10 | −90 % |
 
 Measured on one laptop (3 app replicas × 1 CPU behind nginx, Mongo + Redis local, k6 open-model ramp
 100 → 1,600 req/s, 45 s per stage). Full write-ups with charts: [experiments/](experiments/README.md).

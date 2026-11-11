@@ -29,7 +29,7 @@ for (const a of arms) {
   const ok = rs.filter((r) => r.p95 < m.sla_ms && r.failed_pct < m.max_error_pct && r.rps >= r.rate * 0.9);
   const at = (rate) => rs.find((r) => r.rate === rate);
   summary[a] = { label: m.arms[a]?.label || a, runs: rs.length, max_rps_within_sla: ok.length ? Math.max(...ok.map((r) => r.rate)) : 0,
-    "p95_ms@400": at(400)?.p95 ?? null, "p95_ms@800": at(800)?.p95 ?? null, "failed_pct@1600": at(1600)?.failed_pct ?? null, table: rs };
+    "p95_ms@400": at(400)?.p95 ?? null, "p95_ms@800": at(800)?.p95 ?? null, "achieved@1200": at(1200)?.rps ?? null, "failed_pct@1200": at(1200)?.failed_pct ?? null, table: rs };
 }
 
 const fmt = (v, u = "") => (v == null ? "–" : `${Number.isInteger(v) ? v : (+v).toFixed(1)}${u}`);

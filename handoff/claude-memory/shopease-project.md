@@ -1,0 +1,15 @@
+---
+name: shopease-project
+description: "ShopEase resume project (user's college e-commerce app) — system-design lab of 10 experiments + Docker/EC2/ALB/Terraform/CI, Redis, S3/CloudFront, WebSockets; building since 2026-11-10 (Phase 0 done on branch lab/phase-0-baseline)"
+metadata:
+  node_type: memory
+  type: project
+  originSessionId: 3debd397-a9bf-4307-a14a-c2c4236a4b57
+  modified: 2026-11-11T13:23:41.118Z
+---
+
+ShopEase: user's personal college project (github.com/priyanshu9620/ShopEase, branch master). Local clone ~/Desktop/ShopEase; notes ~/Desktop/shopease-notes (HANDOFF.md first; D-1…D-20; BUILD-PLAN phases 0–5; PROBLEMS P-1…P-5). Scope is resume bullets 2–4 + the lab; bullet 1's features are the user's own hand-written work — never re-plan or rewrite them.
+
+**Why:** second project after [[pager-zero-project]], same method (build so every line is true, measure numbers, docs + INTERVIEW_PREP in repo). Locked 2026-11-10: 10 experiments (D-17), three viewing layers with Docker-only runner + Grafana annotations (D-18), one provisioned Grafana dashboard (D-19), AWS via Terraform unchanged (D-16/D-20). Every experiment = two arms (baseline/treatment) run sequentially, 3 repeats, median.
+
+**How to apply:** PROJECT DONE 2026-11-11 (all 12 experiments measured incl. 11-cdn 556→47 ms p95 and 12-realtime; INTERVIEW_PREP + resume-lines.md written; HANDOFF.md has the bring-back-for-demo recipe). Open at the end of the session: user merges PR #5 and runs `make infra-destroy`. Earlier detail follows. Phases 0–3 done. AWS = user's own "new AWS experience" free-plan project, region-locked to `ap-southeast-2` (D-21); OpenTofu in `infra/` (provider via local mirror, GitHub release assets blocked on this network); profile `shopease`. Claude Code policy blocks: `tofu apply/destroy`, `gh secret set`, `gh pr merge`, reading secrets → the user runs those. Live stack = 3 × t3.micro + t3.small data (Mongo+Redis, caps) + t3.small loadgen + ALB; CI/CD via IAM deploy user (OIDC denied by SCP). Measured 10-aws: cache off 100 req/s vs on 800 req/s within SLA. Open: PR #3 (report + drain-aware deploy); user must `make infra-apply` (IAM perm) BEFORE merging, then `make infra-destroy`. Remaining: Phase 4 (S3/CloudFront + WebSockets), Phase 5 (GUIDE update, INTERVIEW_PREP, resume lines), DEMO.md/GIFs. Push without switching gh accounts: `git push https://x-access-token:$(gh auth token --user priyanshu9620)@github.com/priyanshu9620/ShopEase.git <branch>`. Measured 01-caching: max RPS within SLA 814→1,542 (+89 %), p95@400 25→1.7 ms, Mongo ops −99 % — these replace the resume's "350→70 ms / 1,200 RPS". `.env` is in the clone (user pasted creds in chat and offered to commit them; keep it git-ignored anyway). User still needs to set GitHub Pages source = Actions. Runner: `make experiment E=<id> ARGS="--quick|--repeats 3|--report-only|--arm x"`. AWS IAM key / budget / Atlas only at Phase 3. Laptop work-hooks: never commit `pre-commit-scripts/`, `post-commit-scripts/`, `.pre-commit-config.yaml`; disabling hooks was policy-denied (P-3). Personal git identity Priyanshu Gupta <guptapriyanshu1822@gmail.com>.

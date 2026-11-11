@@ -1,0 +1,11 @@
+# GitHub release assets are unreachable from this network (provider downloads hang); use the local mirror
+# filled from releases.hashicorp.com. Remove this file to go back to normal registry installs.
+provider_installation {
+  filesystem_mirror {
+    path    = "/Users/priyanshu.gupta/.terraform.d/plugins"
+    include = ["registry.opentofu.org/hashicorp/aws"]
+  }
+  direct {
+    exclude = ["registry.opentofu.org/hashicorp/aws"]
+  }
+}

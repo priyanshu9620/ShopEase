@@ -1,0 +1,6 @@
+# Copy to infra/terraform.tfvars (git-ignored) and fill in. Values go to SSM Parameter Store.
+jwt_secret            = "change-me"
+braintree_merchant_id = ""
+braintree_public_key  = ""
+braintree_private_key = ""
+# mongo_url = "mongodb+srv://USER:PASSWORD@cluster.mongodb.net/"   # leave unset → Mongo on the data instance

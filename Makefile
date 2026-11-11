@@ -54,3 +54,32 @@ experiment:
 	  -e HOST_ROOT="$(CURDIR)" -e GRAFANA_URL=http://host.docker.internal:3000 -e PROM_URL=http://host.docker.internal:9090 \
 	  -e LB_URL=http://host.docker.internal:8081 --add-host host.docker.internal:host-gateway \
 	  shopease-runner node /runner/run.js $(E) $(ARGS)
+
+# ---- AWS (Phase 3): OpenTofu in infra/, profile "shopease", region ap-southeast-2 -------------
+TOFU := cd infra && AWS_PROFILE=shopease tofu
+.PHONY: infra-init infra-plan infra-apply infra-destroy infra-output
+
+infra-init:
+	$(TOFU) init -input=false
+
+infra-plan:
+	$(TOFU) plan -input=false
+
+infra-apply:          # review `make infra-plan` first; this creates billable resources
+	$(TOFU) apply -input=false
+
+infra-destroy:        # tears everything down (ECR images included) — run after every session
+	$(TOFU) destroy -input=false
+
+infra-output:
+	$(TOFU) output
+
+# ---- AWS benchmark (experiment 10): runs k6 on the in-region loadgen instance -----------------
+.PHONY: aws-bench aws-report
+aws-bench:            # ARM=cached|uncached  RATES="100 200 400 800 1200 1600"  SECS=40
+	@test -n "$(ARM)" || (echo "usage: make aws-bench ARM=cached|uncached"; exit 1)
+	lab/aws/bench.sh $(ARM) "$(or $(RATES_AWS),100 200 400 800 1200 1600)" $(or $(SECS),40)
+
+aws-report:
+	@docker build -q -t shopease-runner lab/runner >/dev/null
+	docker run --rm -v "$(CURDIR):/work" -w /work shopease-runner node /runner/aws-report.mjs

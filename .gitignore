@@ -14,3 +14,9 @@ experiments/*/results/
 
 # built React client (produced by the Dockerfile / CI, not committed any more)
 client/build/
+
+# infrastructure state and secrets
+infra/.terraform/
+infra/*.tfstate*
+infra/terraform.tfvars
+infra/.terraform.lock.hcl.bak

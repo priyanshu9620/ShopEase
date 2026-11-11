@@ -1,0 +1,35 @@
+# Experiment 10 — The real deployment: 3 × EC2 behind an ALB
+id: 10-aws
+title: Deployed on AWS — 3 × t3.micro behind an Application Load Balancer
+concept: >
+  The local lab shares one laptop between everything. This run uses the production shape: three
+  separate EC2 instances in three availability zones behind an ALB that health-checks /healthz, a
+  separate data instance for Mongo and Redis, and a load generator in the same region so the numbers
+  are the servers' numbers, not the internet's. Built and torn down with OpenTofu (infra/).
+question: What throughput and latency does the deployed app sustain, with and without the Redis cache?
+what_changes: SSM parameter /shopease/CACHE_ENABLED false → true + redeploy (lib/cache.js)
+
+arms:
+  uncached:
+    label: cache OFF
+  cached:
+    label: cache ON
+
+load:
+  script: browse.js
+  rates: [100, 200, 400, 800, 1200, 1600]
+  seconds_per_rate: 40
+
+sla_ms: 300
+max_error_pct: 1
+
+headline:
+  - { metric: max_rps_within_sla, label: max sustained req/s with p95 < 300 ms }
+  - { metric: "p95_ms@400",       label: p95 at 400 req/s (ms) }
+  - { metric: "p95_ms@800",       label: p95 at 800 req/s (ms) }
+  - { metric: "failed_pct@1600",  label: failures at 1,600 req/s (%) }
+
+caveats:
+  - t3.micro instances are burstable (2 vCPU, CPU credits); a long run drains credits and the numbers fall. Each rate ran 40 s.
+  - Mongo and Redis share one t3.small; with the cache off the database instance is the ceiling, which is the point of the cache arm.
+  - Single region, HTTP only, no autoscaling, no CDN yet (Phase 4); the ALB alone adds ~1 ms.

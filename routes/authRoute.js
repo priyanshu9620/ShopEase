@@ -11,6 +11,8 @@ import {
   getuserController,
 } from "../controllers/authController.js";
 import { isAdmin, requireSignIn } from "../middlewares/authMiddleware.js";
+// Phase 4: push the new status to the buyer's open sockets (controller untouched)
+import { afterOrderStatus } from "../lib/realtime.js";
 
 //router object
 const router = express.Router();
@@ -40,7 +42,7 @@ router.get("/orders", requireSignIn, getOrdersController);
 router.get("/all-orders", requireSignIn, isAdmin, getAllOrdersController);
 
 // order status update
-router.put("/order-status/:orderId",requireSignIn,isAdmin,orderStatusController);
+router.put("/order-status/:orderId",requireSignIn,isAdmin,afterOrderStatus(),orderStatusController);
 
 
 

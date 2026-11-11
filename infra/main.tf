@@ -115,6 +115,10 @@ locals {
     MONGO_URL             = local.mongo_url
     REDIS_URL             = local.redis_url
     CACHE_ENABLED         = var.cache_enabled # not a secret, but the instances read all /shopease/* params as their env
+    PHOTO_STORAGE         = "s3"              # Phase 4: photos uploaded to S3 and served from CloudFront
+    PHOTO_BUCKET          = aws_s3_bucket.assets.bucket
+    PHOTO_CDN_URL         = "https://${aws_cloudfront_distribution.cdn.domain_name}"
+    AWS_REGION            = var.region
   }
 }
 

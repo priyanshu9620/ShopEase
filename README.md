@@ -28,6 +28,7 @@ one command, watched live in Grafana, and written up with measured numbers.
 | 08 circuit breaker — requests stuck in flight at the peak | 104 | 10 | −90 % |
 | **10 AWS** — 3 × t3.micro behind an ALB, max sustained req/s with p95 < 300 ms, cache off vs on | 100 req/s | 800 req/s | 8× |
 | 10 AWS — p95 when offered 800 req/s | 28.5 s | 25 ms | |
+| **12 real-time** — order-status updates delivered to 500 sockets on 3 replicas, without vs with the Redis adapter | 829 / 2,500 | 2,500 / 2,500 | 100 % |
 
 The AWS rows were measured by k6 running on an EC2 instance in the same region (`lab/aws/bench.sh`); the
 others on one laptop. Deployed stack: `infra/` (OpenTofu), rolled out by `.github/workflows/deploy.yml`.

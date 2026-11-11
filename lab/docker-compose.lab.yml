@@ -27,6 +27,7 @@ services:
       APP_VERSION: ${APP_VERSION:-v1}                     # runtime override of the build-time version (deploy experiment)
       OVERSELL_MODE: ${OVERSELL_MODE:-atomic}             # experiment 09
       LAB_ROUTES: "true"                                  # /api/v1/lab/* exists only in the lab stack
+      REALTIME_ADAPTER: ${REALTIME_ADAPTER:-true}         # experiment 12
       DEV_MODE: lab                 # no per-request console logging under load
     stop_grace_period: 15s
     deploy:

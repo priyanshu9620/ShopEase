@@ -6,7 +6,7 @@ WORKDIR /runner
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 # the scripts live in the image (ESM resolves node_modules next to the file); the repo is mounted at /work
-COPY run.js report.mjs aws-report.mjs ./
+COPY run.js report.mjs aws-report.mjs k6-report.mjs ./
 # the base image's entrypoint is `docker`; we want a plain shell/node
 ENTRYPOINT []
 CMD ["node", "/runner/run.js"]

@@ -83,3 +83,18 @@ aws-bench:            # ARM=cached|uncached  RATES="100 200 400 800 1200 1600"  
 aws-report:
 	@docker build -q -t shopease-runner lab/runner >/dev/null
 	docker run --rm -v "$(CURDIR):/work" -w /work shopease-runner node /runner/aws-report.mjs
+
+# ---- Phase 4 helpers ---------------------------------------------------------------------------
+.PHONY: k6-report cdn-bench aws-migrate-photos
+k6-report:            # E=11-cdn (one k6 summary per arm under experiments/$(E)/results/<arm>.k6.json)
+	@test -n "$(E)" || (echo "usage: make k6-report E=11-cdn"; exit 1)
+	@docker build -q -t shopease-runner lab/runner >/dev/null
+	docker run --rm -v "$(CURDIR):/work" -w /work shopease-runner node /runner/k6-report.mjs $(E)
+
+cdn-bench:            # photo latency from this laptop: app/ALB vs CloudFront (stack up, photos migrated)
+	lab/aws/cdn-bench.sh
+
+aws-migrate-photos:   # upload existing product photos to S3 and set photoUrl (runs on an app instance via SSM)
+	@ID=$$(AWS_PROFILE=shopease aws ec2 describe-instances --region ap-southeast-2 --filters Name=tag:Role,Values=app Name=instance-state-name,Values=running --query 'Reservations[0].Instances[0].InstanceId' --output text); \
+	AWS_PROFILE=shopease aws ssm send-command --region ap-southeast-2 --instance-ids $$ID --document-name AWS-RunShellScript --timeout-seconds 1800 \
+	  --parameters 'commands=["docker exec shopease node scripts/migrate-photos-to-s3.js 2>&1 | tail -3"]' --query 'Command.CommandId' --output text

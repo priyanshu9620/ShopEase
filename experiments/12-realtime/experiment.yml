@@ -1,0 +1,52 @@
+# Experiment 12 — Real-time order tracking over WebSockets, across replicas
+id: 12-realtime
+title: Real-time push — one update, hundreds of sockets, several replicas
+concept: >
+  A WebSocket is a long-lived connection to ONE replica. When the admin updates an order on replica A,
+  the buyer's browser may be connected to replica B. socket.io's Redis adapter relays every emit through
+  Redis pub/sub so each replica delivers to its own sockets. The experiment opens hundreds of sockets
+  (spread by the load balancer), flips an order's status through the API, and measures delivery.
+question: With 1 replica vs 3, how many sockets receive the update and how fast?
+what_changes: replicas 1 → 3 behind nginx, then the Redis adapter off → on (REALTIME_ADAPTER)
+
+arms:
+  one:
+    label: 1 replica
+    replicas: 1
+    env: { CACHE_ENABLED: "false", PAYMENT_MOCK: "true" }
+  three_noadapter:
+    label: 3 replicas, no Redis adapter
+    replicas: 3
+    env: { CACHE_ENABLED: "false", PAYMENT_MOCK: "true", REALTIME_ADAPTER: "false" }
+  three:
+    label: 3 replicas + Redis adapter
+    replicas: 3
+    env: { CACHE_ENABLED: "false", PAYMENT_MOCK: "true", REALTIME_ADAPTER: "true" }
+
+load:
+  kind: node
+  script: lab/realtime/fanout.js
+  env: { SOCKETS: "500", ROUNDS: "5" }
+  rates: [0]
+  step_s: 1
+  warmup_s: 0
+
+sla_ms: 1000
+max_error_pct: 1
+
+metrics:
+  - { name: socket_connections, unit: sockets, query: 'sum(socket_connections{job="app"}) or vector(0)' }
+  - { name: sockets_per_replica_max, unit: sockets, query: 'max(socket_connections{job="app"}) or vector(0)' }
+  - { name: events_per_s, unit: ev/s, query: 'sum(rate(realtime_events_total[15s])) or vector(0)' }
+
+headline:
+  - { metric: "k6:sockets.count",        label: sockets connected }
+  - { metric: "k6:replicas_used.count",  label: replicas the sockets landed on }
+  - { metric: "k6:received.count",       label: updates delivered (5 rounds) }
+  - { metric: "k6:lost.count",           label: updates lost }
+  - { metric: "k6:delivery_ms.p(95)",    label: "delivery p95 (ms, API call → socket)" }
+
+caveats:
+  - Delivery time includes the admin's HTTP request to the API (through nginx) plus the Redis relay plus the WebSocket hop; on one laptop all of that is sub-millisecond network, so the number is mostly scheduling.
+  - 500 sockets is the laptop's comfortable range; the AWS run uses the same script from the loadgen instance against the ALB.
+  - The test client uses WebSocket transport only; browsers that fall back to long-polling would need load-balancer stickiness.

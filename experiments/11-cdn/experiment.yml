@@ -1,0 +1,35 @@
+# Experiment 11 — CDN for static assets (product photos)
+id: 11-cdn
+title: CDN — product photos from CloudFront edges vs from the app in Sydney
+concept: >
+  Static files do not need to come from the application server. Uploading photos to S3 and serving them
+  through CloudFront puts copies at edge locations close to the user, takes the bytes off the app
+  instances and the database, and lets browsers cache them for a year (immutable URLs). The measurement
+  is taken from the author's laptop in India against a stack in Sydney — distance is the point.
+question: What does a user far from the region see for photo latency, app-served vs CDN-served?
+what_changes: PHOTO_STORAGE=mongo (bytes from Mongo through the ALB) → s3 (302 to CloudFront; the k6 "cdn" mode hits the CDN URL directly)
+
+arms:
+  alb:
+    label: photos via app + ALB (Sydney)
+  cdn:
+    label: photos via CloudFront edge
+
+load:
+  script: photos.js
+  rates: [5, 10, 20]
+  step_s: 30
+
+sla_ms: 300
+max_error_pct: 1
+
+headline:
+  - { metric: "k6:photo_rt.med",     label: photo p50 (ms) }
+  - { metric: "k6:photo_rt.p(95)",   label: photo p95 (ms) }
+  - { metric: "k6:photo_ttfb.med",   label: time to first byte p50 (ms) }
+  - { metric: "k6:failed_pct",       label: failed (%) }
+
+caveats:
+  - Measured from one laptop on one ISP (India → Sydney ≈ 150–900 ms RTT depending on the path); numbers vary by location, the ratio is the message.
+  - Low request rate on purpose (5–20 req/s): the laptop's uplink, not the servers, is the constraint; this experiment is about latency, 10-aws is about throughput.
+  - The first request for each photo at an edge is a miss (fetched from S3 in Sydney); with 60 photos and hundreds of requests the hit rate is high, as it would be for popular products.

@@ -12,6 +12,7 @@ import { httpMetricsMiddleware, metricsHandler } from "./lib/metrics.js";
 import { status as redisStatus } from "./lib/redis.js";
 import { rateLimit } from "./lib/ratelimit.js";
 import labRoutes from "./routes/labRoutes.js";
+import { attachRealtime } from "./lib/realtime.js";
 // this path is used for deployment
 import path from 'path';
 import {fileURLToPath} from 'url';
@@ -91,6 +92,9 @@ const server = app.listen(PORT, () => {
     `Server Running on ${process.env.DEV_MODE} mode on port ${PORT}`
   );
 });
+
+// Phase 4: socket.io on the same port (/socket.io), Redis adapter when REDIS_URL is set
+attachRealtime(server).catch((e) => console.log(`realtime disabled: ${e.message}`));
 
 // Graceful shutdown (experiment 04): on SIGTERM stop accepting new connections, let in-flight
 // requests finish (up to GRACEFUL_TIMEOUT_MS), then exit. Docker sends SIGTERM on `stop`; without

@@ -93,7 +93,7 @@ async function runArm(armName, arm, n) {
   const warm = QUICK ? 5 : m.load.warmup_s || 0;
   log(`watch: ${GRAFANA.replace("host.docker.internal", "localhost")}/d/shopease-lab   (ramp ${rates.join("→")} req/s, ${step} s each)`);
 
-  if (warm) { log(`warm-up ${warm} s`); await shLive(`${COMPOSE} run --rm -e RATES=${rates[0]} -e STEP_S=${warm} k6 run --quiet ${m.load.script} >/dev/null`, env); }
+  if (warm && m.load.kind !== "node") { log(`warm-up ${warm} s`); await shLive(`${COMPOSE} run --rm -e RATES=${rates[0]} -e STEP_S=${warm} k6 run --quiet ${m.load.script} >/dev/null`, env); }
 
   const start = now();
   const outBase = `/experiments/${E}/results/${armName}-${n}`;
@@ -102,7 +102,13 @@ async function runArm(armName, arm, n) {
     // fire "during" hooks at their offset while k6 runs, e.g. "- {at_s: 60, run: docker kill shopease-app-2}"
     for (const h of arm.hooks.during) setTimeout(async () => { log(`hook @${h.at_s}s: ${h.run}`); await annotate(h.label || h.run, ["hook"]); try { await shLive(h.run, env); } catch (e) { log(e.message); } }, h.at_s * 1000);
   }
-  await shLive(`${COMPOSE} run --rm -e RATES=${rates.join(",")} -e STEP_S=${step} -e OUT=${outBase} k6 run --quiet ${m.load.script}`, env);
+  if (m.load.kind === "node") {
+    // a node script in the app image (e.g. lab/realtime/fanout.js) instead of k6; same OUT contract
+    const extra = Object.entries(m.load.env || {}).map(([k, v]) => `-e ${k}=${v}`).join(" ");
+    await shLive(`${COMPOSE} run --rm --no-deps -v ${process.env.HOST_ROOT || ROOT}/experiments:/experiments -e BASE_URL=http://nginx:80 -e OUT=${outBase} ${extra} app node ${m.load.script}`, env);
+  } else {
+    await shLive(`${COMPOSE} run --rm -e RATES=${rates.join(",")} -e STEP_S=${step} -e OUT=${outBase} k6 run --quiet ${m.load.script}`, env);
+  }
   const end = now();
   await annotate(`${E}: ${label} end`, [armName, "arm-end"], end);
   await annotate(`${label}`, [armName, "arm-window"], start, end);

@@ -6,7 +6,13 @@ import colors from "colors";
 const connectDB = async () => {
   for (let attempt = 1; ; attempt++) {
     try {
-      const conn = await mongoose.connect(process.env.MONGO_URL, { dbName: 'ecommerce', serverSelectionTimeoutMS: 5000 });
+      // maxPoolSize: mongoose defaults to 100 connections per process; 3 replicas × 100 idle connections
+      // cost the 2 GB data instance ~300 MB and helped OOM-kill mongod under load (P-31). 20 is plenty.
+      const conn = await mongoose.connect(process.env.MONGO_URL, {
+        dbName: 'ecommerce',
+        serverSelectionTimeoutMS: 5000,
+        maxPoolSize: Number(process.env.MONGO_POOL_SIZE || 20),
+      });
       console.log(
         `Conneted To Mongodb Databse ${conn.connection.host}`.bgMagenta.white
       );

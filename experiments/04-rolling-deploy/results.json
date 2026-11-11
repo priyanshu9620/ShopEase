@@ -1,0 +1,74 @@
+{
+ "experiment": "04-rolling-deploy",
+ "title": "Rolling deploy with graceful shutdown vs restart-everything",
+ "generated": "2026-11-11T04:14:44.586Z",
+ "summary": {
+  "naive": {
+   "label": "restart all at once",
+   "runs": 1,
+   "env": {
+    "CACHE_ENABLED": "false",
+    "GRACEFUL_SHUTDOWN": "false",
+    "APP_VERSION": "v1"
+   },
+   "replicas": 3,
+   "max_rps_within_sla": 204,
+   "k6:failed_pct": 0.267,
+   "replicas_v2:max": 3,
+   "k6": {
+    "requests": 27008,
+    "failed_pct": 0.2665876777251185,
+    "p95_ms": 64.51105569999999,
+    "p99_ms": 127.08035486999994
+   }
+  },
+  "rolling": {
+   "label": "rolling + graceful drain",
+   "runs": 1,
+   "env": {
+    "CACHE_ENABLED": "false",
+    "GRACEFUL_SHUTDOWN": "true",
+    "APP_VERSION": "v1"
+   },
+   "replicas": 3,
+   "max_rps_within_sla": 206,
+   "k6:failed_pct": 0,
+   "replicas_v2:max": 3,
+   "k6": {
+    "requests": 26983,
+    "failed_pct": 0,
+    "p95_ms": 76.3482417999999,
+    "p99_ms": 2001.11191488
+   }
+  }
+ },
+ "headline": [
+  {
+   "metric": "k6:failed_pct",
+   "label": "requests failed during the run",
+   "user side (%)": null
+  },
+  {
+   "metric": "replicas_v2:max",
+   "label": "replicas on v2 at the end"
+  }
+ ],
+ "charts": [
+  {
+   "name": "rps",
+   "file": "rps.svg"
+  },
+  {
+   "name": "p95_ms",
+   "file": "p95_ms.svg"
+  },
+  {
+   "name": "replicas_v1",
+   "file": "replicas_v1.svg"
+  },
+  {
+   "name": "replicas_v2",
+   "file": "replicas_v2.svg"
+  }
+ ]
+}

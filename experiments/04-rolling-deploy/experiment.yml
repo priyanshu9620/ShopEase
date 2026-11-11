@@ -42,7 +42,6 @@ metrics:
 
 headline:
   - { metric: k6:failed_pct,  label: requests failed during the run, user side (%) }
-  - { metric: rps:min,        label: lowest 15 s throughput reaching the app (req/s) }
   - { metric: replicas_v2:max, label: replicas on v2 at the end }
 
 caveats:

@@ -20,6 +20,8 @@ one command, watched live in Grafana, and written up with measured numbers.
 | **05 DB indexing** — product-by-slug p95 at 100 req/s, 50k products | 24.3 ms | 4.5 ms | −81 % |
 | 05 DB indexing — Mongo documents scanned per second | 2.4 M | 190 | −100 % |
 | **06 rate limiting** — abuser's requests rejected / normal users' p95 | 0 % / 3.5 ms | 80 % / 3.8 ms | DB load −42 % |
+| **04 rolling deploy** — requests failed during a v1 → v2 deploy at 200 req/s | 0.3 % | 0 % | −100 % |
+| **09 concurrency control** — units sold over 20 rounds of 1-unit stock, 200 simultaneous buyers | 44 (oversold ×24) | 20 (exact) | −55 % |
 
 Measured on one laptop (3 app replicas × 1 CPU behind nginx, Mongo + Redis local, k6 open-model ramp
 100 → 1,600 req/s, 45 s per stage). Full write-ups with charts: [experiments/](experiments/README.md).
